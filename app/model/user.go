@@ -1,0 +1,55 @@
+package model
+
+import (
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
+
+type User struct {
+	ID           uuid.UUID  `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	Username     string     `gorm:"size:50;unique;not null" json:"username"`
+	Email        string     `gorm:"size:100;unique;not null" json:"email"`
+	PasswordHash string     `gorm:"size:255;not null" json:"-"`
+	FullName     string     `gorm:"size:100;not null" json:"full_name"`
+	RoleID       *uuid.UUID `gorm:"type:uuid" json:"role_id"`
+	IsActive     bool       `gorm:"default:true" json:"is_active"`
+	CreatedAt    time.Time  `gorm:"default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt    time.Time  `gorm:"default:CURRENT_TIMESTAMP" json:"updated_at"`
+	RefreshToken string     `gorm:"type:text" json:"-"`
+
+	// Relasi
+	Role     Role      `gorm:"foreignKey:RoleID" json:"role,omitempty"`
+	Student  *Student  `gorm:"foreignKey:UserID" json:"student,omitempty"`
+	Lecturer *Lecturer `gorm:"foreignKey:UserID" json:"lecturer,omitempty"`
+}
+
+// dto
+type LoginReq struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type CreateUserReq struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+	FullName string `json:"full_name" binding:"required"`
+	RoleID   string `json:"role_id" binding:"required"`
+}
+
+type JWTClaims struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Username string    `json:"username"`
+	Role     string    `json:"role"`
+	Type     string    `json:"type"`
+	jwt.RegisteredClaims
+}
+
+type BlacklistedToken struct {
+	ID        uint      `gorm:"primaryKey"`
+	Token     string    `gorm:"uniqueIndex;not null"`
+	ExpiresAt time.Time `gorm:"not null"`
+	CreatedAt time.Time
+}
