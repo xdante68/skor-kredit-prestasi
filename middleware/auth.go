@@ -18,7 +18,6 @@ func AuthRequired() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Token not found"})
 		}
 
-		// format barrier
 		if len(bearer) < 7 || !strings.EqualFold(bearer[:7], "Bearer ") {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Bearer format wrong"})
 		}
@@ -33,8 +32,8 @@ func AuthRequired() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Token type invalid"})
 		}
 
-		// Check blacklist
 		var blacklistedToken model.BlacklistedToken
+
 		if err := db.GetDB().Where("token = ?", token).First(&blacklistedToken).Error; err == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Token blacklisted"})
 		}
@@ -43,7 +42,6 @@ func AuthRequired() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "message": "Token claim incomplete"})
 		}
 
-		// role
 		role := strings.ToLower(claims.Role)
 
 		c.Locals("user_id", claims.UserID)

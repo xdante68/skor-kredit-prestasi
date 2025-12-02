@@ -27,12 +27,9 @@ type SuccessResponse[T any] struct {
 	Data    T      `json:"data,omitempty"`
 }
 
-type LoginUser struct {
-	ID        string `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	CreatedAt string `json:"created_at"`
+type ProfileResponse struct {
+	Success bool        `json:"success"`
+	Data    ProfileData `json:"data"`
 }
 
 type LoginResponse struct {
@@ -45,15 +42,4 @@ type LoginSuccessResponse struct {
 	Success bool          `json:"success"`
 	Message string        `json:"message"`
 	Data    LoginResponse `json:"data"`
-}
-
-type ProfileData struct {
-	UserID   string `json:"user_id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
-}
-
-type ProfileResponse struct {
-	Success bool        `json:"success"`
-	Data    ProfileData `json:"data"`
 }

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"log"
 	"strings"
 	"time"
 
@@ -19,7 +20,7 @@ func NewAuthService(userRepo *repo.UserRepo) *AuthService {
 	return &AuthService{userRepo: userRepo}
 }
 
-func (ctrl *AuthService) Login(c *fiber.Ctx) error {
+func (s *AuthService) Login(c *fiber.Ctx) error {
 	var req model.LoginReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
@@ -35,7 +36,7 @@ func (ctrl *AuthService) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := ctrl.userRepo.FindByUsername(req.Username)
+	user, err := s.userRepo.FindByUsername(req.Username)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
@@ -66,9 +67,8 @@ func (ctrl *AuthService) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Save refresh token to user
 	user.RefreshToken = refreshToken
-	if err := ctrl.userRepo.DB.Save(user).Error; err != nil {
+	if err := s.userRepo.DB.Save(user).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
 			Message: "Failed to save refresh token",
@@ -92,10 +92,8 @@ func (ctrl *AuthService) Login(c *fiber.Ctx) error {
 	})
 }
 
-func (ctrl *AuthService) Refresh(c *fiber.Ctx) error {
-	var req struct {
-		RefreshToken string `json:"refreshToken"`
-	}
+func (s *AuthService) Refresh(c *fiber.Ctx) error {
+	var req model.RefreshTokenReq
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
@@ -119,8 +117,7 @@ func (ctrl *AuthService) Refresh(c *fiber.Ctx) error {
 		})
 	}
 
-	// Find user to check stored refresh token
-	user, err := ctrl.userRepo.FindByID(claims.UserID)
+	user, err := s.userRepo.FindByID(claims.UserID)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
@@ -143,16 +140,16 @@ func (ctrl *AuthService) Refresh(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Token refreshed",
-		"data": fiber.Map{
-			"token": newToken,
+	return c.JSON(model.SuccessResponse[model.RefreshTokenResponse]{
+		Success: true,
+		Message: "Token refreshed",
+		Data: model.RefreshTokenResponse{
+			Token: newToken,
 		},
 	})
 }
 
-func (ctrl *AuthService) Logout(c *fiber.Ctx) error {
+func (s *AuthService) Logout(c *fiber.Ctx) error {
 	bearer := strings.TrimSpace(c.Get("Authorization"))
 	if bearer == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
@@ -163,7 +160,6 @@ func (ctrl *AuthService) Logout(c *fiber.Ctx) error {
 
 	tokenString := strings.TrimSpace(bearer[7:])
 
-	// Get expiration time from token
 	claims, err := helper.ValidateToken(tokenString)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
@@ -172,40 +168,33 @@ func (ctrl *AuthService) Logout(c *fiber.Ctx) error {
 		})
 	}
 
-	// Save access token to blacklist
 	blacklistedToken := model.BlacklistedToken{
 		Token:     tokenString,
 		ExpiresAt: claims.ExpiresAt.Time,
 	}
 
-	if err := ctrl.userRepo.DB.Create(&blacklistedToken).Error; err != nil {
+	if err := s.userRepo.DB.Create(&blacklistedToken).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
 			Message: "Failed to logout",
 		})
 	}
 
-	// Handle refresh token if provided
-	var req struct {
-		RefreshToken string `json:"refreshToken"`
-	}
+	var req model.RefreshTokenReq
+
 	if err := c.BodyParser(&req); err == nil && req.RefreshToken != "" {
-		// Validate refresh token to get expiration
 		refreshClaims, err := helper.ValidateToken(req.RefreshToken)
 		if err == nil {
-			// Add refresh token to blacklist
 			blacklistedRefreshToken := model.BlacklistedToken{
 				Token:     req.RefreshToken,
 				ExpiresAt: refreshClaims.ExpiresAt.Time,
 			}
-			ctrl.userRepo.DB.Create(&blacklistedRefreshToken)
+			s.userRepo.DB.Create(&blacklistedRefreshToken)
 		}
 	}
 
-	// Clear refresh token from user record
-	if err := ctrl.userRepo.DB.Model(&model.User{}).Where("id = ?", claims.UserID).Update("refresh_token", "").Error; err != nil {
-		// Log error but don't fail the request since token is already blacklisted
-		// log.Println("Failed to clear refresh token from user:", err)
+	if err := s.userRepo.DB.Model(&model.User{}).Where("id = ?", claims.UserID).Update("refresh_token", "").Error; err != nil {
+		log.Printf("Failed to clear refresh token for user %s: %v", claims.UserID, err)
 	}
 
 	return c.JSON(model.SuccessMessageResponse{
@@ -214,18 +203,18 @@ func (ctrl *AuthService) Logout(c *fiber.Ctx) error {
 	})
 }
 
-func (ctrl *AuthService) Profile(c *fiber.Ctx) error {
-	userID, ok := c.Locals("user_id").(string)
-	if !ok {
-		// Try to get from user object if direct string fails (depends on middleware)
-		// For now, assume middleware sets it correctly or handle error
-		// If middleware sets uuid.UUID, we need to handle that
-	}
-
-	if uid, ok := c.Locals("user_id").(string); ok {
-		userID = uid
-	} else if uid, ok := c.Locals("user_id").(interface{ String() string }); ok {
-		userID = uid.String()
+func (s *AuthService) Profile(c *fiber.Ctx) error {
+	var userID string
+	switch v := c.Locals("user_id").(type) {
+	case string:
+		userID = v
+	case interface{ String() string }:
+		userID = v.String()
+	default:
+		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Invalid user session",
+		})
 	}
 
 	username, _ := c.Locals("username").(string)

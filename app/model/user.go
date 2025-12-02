@@ -25,7 +25,6 @@ type User struct {
 	Lecturer *Lecturer `gorm:"foreignKey:UserID" json:"lecturer,omitempty"`
 }
 
-// dto
 type LoginReq struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -37,6 +36,20 @@ type CreateUserReq struct {
 	Password string `json:"password" binding:"required,min=6"`
 	FullName string `json:"full_name" binding:"required"`
 	RoleID   string `json:"role_id" binding:"required"`
+}
+
+type LoginUser struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at"`
+}
+
+type ProfileData struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
 }
 
 type JWTClaims struct {
@@ -52,4 +65,12 @@ type BlacklistedToken struct {
 	Token     string    `gorm:"uniqueIndex;not null"`
 	ExpiresAt time.Time `gorm:"not null"`
 	CreatedAt time.Time
+}
+
+type RefreshTokenReq struct {
+	RefreshToken string `json:"refreshToken" binding:"required"`
+}
+
+type RefreshTokenResponse struct {
+	Token string `json:"token" binding:"required"`
 }

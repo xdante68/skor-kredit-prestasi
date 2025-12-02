@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fiber/skp/app/model"
 	"log"
 	"os"
 	"time"
@@ -21,7 +20,7 @@ var (
 
 func ConnectDB() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found, using system environment variables")
+		log.Println("Warning: .env file not found")
 	}
 
 	connectPostgres()
@@ -30,9 +29,6 @@ func ConnectDB() {
 
 func connectPostgres() {
 	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		log.Fatal("DB_DSN is not set in .env")
-	}
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -40,18 +36,7 @@ func connectPostgres() {
 		log.Fatal("Failed to connect to PostgreSQL:", err)
 	}
 
-	// AutoMigrate models
-	err = DB.AutoMigrate(
-		&model.User{},
-		&model.Student{},              // Butuh User & Lecturer (Advisor)
-		&model.AchievementReference{}, // Butuh Student & User
-		&model.BlacklistedToken{},
-	)
-	if err != nil {
-		log.Fatal("Failed to auto migrate database schema:", err)
-	}
-
-	log.Println(" Connected to PostgreSQL successfully")
+	log.Println("Connected to PostgreSQL successfully")
 }
 
 func connectMongo() {
