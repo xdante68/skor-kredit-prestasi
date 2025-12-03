@@ -16,6 +16,7 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 
 	userRepo := repo.NewUserRepo()
 	authService := service.NewAuthService(userRepo)
+	userService := service.NewUserService(userRepo)
 
 	auth := v1.Group("/auth")
 
@@ -24,6 +25,15 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 	auth.Post("/logout", authService.Logout)
 
 	protected := v1.Group("", middleware.AuthRequired())
-	
+
 	protected.Get("/auth/profile", authService.Profile)
+
+	users := protected.Group("/users", middleware.AdminOnly)
+
+	users.Get("/", userService.GetAllUsers)
+	users.Get("/:id", userService.GetUser)
+	users.Post("/", userService.CreateUser)
+	users.Put("/:id", userService.UpdateUser)
+	users.Delete("/:id", userService.DeleteUser)
+	users.Put("/:id/role", userService.ChangeRole)
 }

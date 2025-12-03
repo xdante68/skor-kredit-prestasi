@@ -25,17 +25,24 @@ type User struct {
 	Lecturer *Lecturer `gorm:"foreignKey:UserID" json:"lecturer,omitempty"`
 }
 
-type LoginReq struct {
+type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
-type CreateUserReq struct {
+type CreateUserRequest struct {
 	Username string `json:"username" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 	FullName string `json:"full_name" binding:"required"`
 	RoleID   string `json:"role_id" binding:"required"`
+}
+
+type UpdateUserRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email" validate:"omitempty,email"`
+	FullName string `json:"full_name"`
+	Password string `json:"password" validate:"omitempty,min=6"`
 }
 
 type LoginUser struct {
@@ -44,6 +51,14 @@ type LoginUser struct {
 	Email     string `json:"email"`
 	Role      string `json:"role"`
 	CreatedAt string `json:"created_at"`
+}
+
+type UserResponse struct {
+	ID       uuid.UUID `json:"id"`
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
+	FullName string    `json:"full_name"`
+	Role     string    `json:"role"`
 }
 
 type ProfileData struct {
@@ -67,10 +82,14 @@ type BlacklistedToken struct {
 	CreatedAt time.Time
 }
 
-type RefreshTokenReq struct {
+type RefreshTokenRequest struct {
 	RefreshToken string `json:"refreshToken" binding:"required"`
 }
 
 type RefreshTokenResponse struct {
 	Token string `json:"token" binding:"required"`
+}
+
+type ChangeRoleRequest struct {
+	RoleID string `json:"role_id" validate:"required,uuid"`
 }
