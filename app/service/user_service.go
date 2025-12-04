@@ -4,6 +4,7 @@ import (
 	"fiber/skp/app/model"
 	"fiber/skp/app/repo"
 	"fiber/skp/helper"
+	"math"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -19,7 +20,18 @@ func NewUserService(userRepo *repo.UserRepo) *UserService {
 
 // GET /api/v1/users
 func (s *UserService) GetAllUsers(c *fiber.Ctx) error {
-	users, err := s.userRepo.FindAll()
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 10)
+	search := c.Query("search", "")
+	sortBy := c.Query("sortBy", "created_at")
+	order := c.Query("order", "desc")
+
+	validSorts := map[string]bool{"username": true, "email": true, "full_name": true, "created_at": true}
+	if !validSorts[sortBy] {
+		sortBy = "created_at"
+	}
+
+	users, total, err := s.userRepo.FindAll(page, limit, search, sortBy, order)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
@@ -39,9 +51,22 @@ func (s *UserService) GetAllUsers(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(model.SuccessResponse[[]model.UserResponse]{
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	return c.JSON(model.SuccessResponse[model.PaginationData[model.UserResponse]]{
 		Success: true,
-		Data:    userResponses,
+		Data: model.PaginationData[model.UserResponse]{
+			Items: userResponses,
+			Meta: model.MetaInfo{
+				Page:   page,
+				Limit:  limit,
+				Total:  total,
+				Pages:  totalPages,
+				SortBy: sortBy,
+				Order:  order,
+				Search: search,
+			},
+		},
 	})
 }
 

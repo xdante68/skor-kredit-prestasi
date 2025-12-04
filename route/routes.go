@@ -5,6 +5,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 
+	"fiber/skp/app/model"
 	"fiber/skp/app/repo"
 	"fiber/skp/app/service"
 	"fiber/skp/middleware"
@@ -32,7 +33,7 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 
 	protected.Get("/auth/profile", authService.Profile)
 
-	users := protected.Group("/users", middleware.AdminOnly)
+	users := protected.Group("/users", middleware.RolesRequired(model.RoleAdmin))
 
 	users.Get("/", userService.GetAllUsers)
 	users.Get("/:id", userService.GetUser)
@@ -42,15 +43,15 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 	users.Put("/:id/role", userService.ChangeRole)
 
 	achievements := protected.Group("/achievements")
-	
+
 	achievements.Get("/", achievementSvc.List)
 	achievements.Get("/:id", achievementSvc.Get)
-	achievements.Post("/", achievementSvc.Create)
-	achievements.Put("/:id", achievementSvc.Update)
-	achievements.Delete("/:id", achievementSvc.Delete)
-	achievements.Post("/:id/submit", achievementSvc.Submit)
-	achievements.Post("/:id/verify", achievementSvc.Verify)
-	achievements.Post("/:id/reject", achievementSvc.Reject)
+	achievements.Post("/", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Create)
+	achievements.Put("/:id", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Update)
+	achievements.Delete("/:id", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Delete)
+	achievements.Post("/:id/submit", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Submit)
+	achievements.Post("/:id/verify", middleware.RolesRequired(model.RoleDosenWali), achievementSvc.Verify)
+	achievements.Post("/:id/reject", middleware.RolesRequired(model.RoleDosenWali), achievementSvc.Reject)
 	achievements.Get("/:id/history", achievementSvc.GetHistory)
-	achievements.Post("/:id/attachments", achievementSvc.UploadAttachment)
+	achievements.Post("/:id/attachments", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.UploadAttachment)
 }

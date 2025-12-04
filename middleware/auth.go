@@ -9,6 +9,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func AuthRequired() fiber.Handler {
@@ -46,7 +48,7 @@ func AuthRequired() fiber.Handler {
 
 		var blacklistedToken model.BlacklistedToken
 
-		if err := db.GetDB().Where("token = ?", token).First(&blacklistedToken).Error; err == nil {
+		if err := db.GetDB().Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Where("token = ?", token).First(&blacklistedToken).Error; err == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
 				Message: "Token blacklisted",
@@ -71,15 +73,45 @@ func AuthRequired() fiber.Handler {
 	}
 }
 
-func AdminOnly(c *fiber.Ctx) error {
-	role := c.Locals("role")
+func RolesRequired(roles ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userRole := c.Locals("role")
+		if userRole == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Role not found",
+			})
+		}
 
-	if role != "admin" {
+		roleStr, ok := userRole.(string)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Invalid role format",
+			})
+		}
+
+		for _, role := range roles {
+			if roleStr == role {
+				return c.Next()
+			}
+		}
+
 		return c.Status(fiber.StatusForbidden).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Admin only.",
+			Message: "Forbidden access",
 		})
 	}
+}
 
-	return c.Next()
+func AdminOnly(c *fiber.Ctx) error {
+	return RolesRequired(model.RoleAdmin)(c)
+}
+
+func MahasiswaOnly(c *fiber.Ctx) error {
+	return RolesRequired(model.RoleMahasiswa)(c)
+}
+
+func DosenWaliOnly(c *fiber.Ctx) error {
+	return RolesRequired(model.RoleDosenWali)(c)
 }

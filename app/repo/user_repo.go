@@ -3,6 +3,7 @@ package repo
 import (
 	"fiber/skp/app/model"
 	"fiber/skp/db"
+	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -40,10 +41,31 @@ func (r *UserRepo) FindByID(id uuid.UUID) (*model.User, error) {
 	return &user, nil
 }
 
-func (r *UserRepo) FindAll() ([]model.User, error) {
+func (r *UserRepo) FindAll(page, limit int, search, sortBy, order string) ([]model.User, int64, error) {
 	var users []model.User
-	err := r.DB.Preload("Role").Where("is_active = ?", true).Find(&users).Error
-	return users, err
+	var total int64
+
+	query := r.DB.Preload("Role").Where("is_active = ?", true)
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("username ILIKE ? OR email ILIKE ? OR full_name ILIKE ?", searchPattern, searchPattern, searchPattern)
+	}
+
+	if err := query.Model(&model.User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+
+	if sortBy != "" && order != "" {
+		query = query.Order(fmt.Sprintf("%s %s", sortBy, order))
+	} else {
+		query = query.Order("created_at desc")
+	}
+
+	err := query.Offset(offset).Limit(limit).Find(&users).Error
+	return users, total, err
 }
 
 func (r *UserRepo) Update(user *model.User) error {

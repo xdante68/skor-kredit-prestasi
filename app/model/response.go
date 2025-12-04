@@ -10,6 +10,11 @@ type MetaInfo struct {
 	Search string `json:"search"`
 }
 
+type PaginationData[T any] struct {
+	Items []T      `json:"items"`
+	Meta  MetaInfo `json:"meta"`
+}
+
 type SuccessMessageResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`

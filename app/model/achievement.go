@@ -88,21 +88,21 @@ type UpdateAchievementRequest struct {
 }
 
 type AchievementResponse struct {
-	ID              uuid.UUID              `json:"id"`
-	MongoID         string                 `json:"mongo_achievement_id"`
-	StudentID       uuid.UUID              `json:"student_id"`
-	StudentName     string                 `json:"student_name,omitempty"`
-	Status          string                 `json:"status"`
-	AchievementType string                 `json:"achievement_type"`
-	Title           string                 `json:"title"`
-	Description     string                 `json:"description"`
-	Details         map[string]interface{} `json:"details"`
-	Attachments     []Attachment           `json:"attachments"`
-	Tags            []string               `json:"tags"`
-	Points          int                    `json:"points"`
-	RejectionNote   string                 `json:"rejection_note,omitempty"`
-	CreatedAt       time.Time              `json:"created_at"`
-	UpdatedAt       time.Time              `json:"updated_at"`
+	ID              uuid.UUID          `json:"id"`
+	MongoID         string             `json:"mongo_achievement_id"`
+	StudentID       uuid.UUID          `json:"student_id"`
+	StudentName     string             `json:"student_name,omitempty"`
+	Status          string             `json:"status"`
+	AchievementType string             `json:"achievement_type"`
+	Title           string             `json:"title"`
+	Description     string             `json:"description"`
+	Details         AchievementDetails `json:"details"`
+	Attachments     []Attachment       `json:"attachments"`
+	Tags            []string           `json:"tags"`
+	Points          int                `json:"points"`
+	RejectionNote   string             `json:"rejection_note,omitempty"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
 }
 
 type CompetitionRequest struct {
@@ -127,7 +127,7 @@ type OrganizationRequest struct {
 }
 
 type VerifyRequest struct {
-	Points int `json:"points"`
+	Points int `json:"points" form:"points" binding:"required,gt=0"`
 }
 
 type RejectRequest struct {
