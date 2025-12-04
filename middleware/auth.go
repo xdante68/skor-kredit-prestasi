@@ -77,7 +77,7 @@ func AdminOnly(c *fiber.Ctx) error {
 	if role != "admin" {
 		return c.Status(fiber.StatusForbidden).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Access denied. Admin only.",
+			Message: "Admin only.",
 		})
 	}
 

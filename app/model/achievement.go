@@ -3,12 +3,13 @@ package model
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type AchievementMongo struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	StudentID       string             `bson:"studentId" json:"studentId"` 
+	StudentID       string             `bson:"studentId" json:"studentId"`
 	AchievementType string             `bson:"achievementType" json:"achievementType"`
 	Title           string             `bson:"title" json:"title"`
 	Description     string             `bson:"description" json:"description"`
@@ -35,8 +36,8 @@ type AchievementDetails struct {
 	ISSN             string   `bson:"issn,omitempty" json:"issn,omitempty"`
 
 	// Organization
-	OrganizationName string             `bson:"organizationName,omitempty" json:"organizationName,omitempty"`
-	Position         string             `bson:"position,omitempty" json:"position,omitempty"`
+	OrganizationName string              `bson:"organizationName,omitempty" json:"organizationName,omitempty"`
+	Position         string              `bson:"position,omitempty" json:"position,omitempty"`
 	Period           *OrganizationPeriod `bson:"period,omitempty" json:"period,omitempty"`
 
 	// Certification
@@ -64,41 +65,71 @@ type Attachment struct {
 	UploadedAt time.Time `bson:"uploadedAt" json:"uploadedAt"`
 }
 
-type CreateAchievementReq struct {
-	Title           string `json:"title" binding:"required"`
-	AchievementType string `json:"achievement_type" binding:"required,oneof=academic competition organization publication certification other"`
-	Description     string `json:"description"`
-	CompetitionDetails *CompetitionReq `json:"competition_details,omitempty"`
-	PublicationDetails *PublicationReq `json:"publication_details,omitempty"`
-	OrganizationDetails *OrganizationReq `json:"organization_details,omitempty"`
-	EventDate string   `json:"event_date"` 
-	Tags      []string `json:"tags"`
+type CreateAchievementRequest struct {
+	Title               string               `json:"title" binding:"required"`
+	AchievementType     string               `json:"achievement_type" binding:"required,oneof=academic competition organization publication certification other"`
+	Description         string               `json:"description"`
+	CompetitionDetails  *CompetitionRequest  `json:"competition_details,omitempty"`
+	PublicationDetails  *PublicationRequest  `json:"publication_details,omitempty"`
+	OrganizationDetails *OrganizationRequest `json:"organization_details,omitempty"`
+	EventDate           string               `json:"event_date"`
+	Tags                []string             `json:"tags"`
 }
 
-// dto
+type UpdateAchievementRequest struct {
+	Title               *string              `json:"title,omitempty"`
+	AchievementType     *string              `json:"achievement_type,omitempty" binding:"omitempty,oneof=academic competition organization publication certification other"`
+	Description         *string              `json:"description,omitempty"`
+	CompetitionDetails  *CompetitionRequest  `json:"competition_details,omitempty"`
+	PublicationDetails  *PublicationRequest  `json:"publication_details,omitempty"`
+	OrganizationDetails *OrganizationRequest `json:"organization_details,omitempty"`
+	EventDate           *string              `json:"event_date,omitempty"`
+	Tags                *[]string            `json:"tags,omitempty"`
+}
 
-type CompetitionReq struct {
+type AchievementResponse struct {
+	ID              uuid.UUID              `json:"id"`
+	MongoID         string                 `json:"mongo_achievement_id"`
+	StudentID       uuid.UUID              `json:"student_id"`
+	StudentName     string                 `json:"student_name,omitempty"`
+	Status          string                 `json:"status"`
+	AchievementType string                 `json:"achievement_type"`
+	Title           string                 `json:"title"`
+	Description     string                 `json:"description"`
+	Details         map[string]interface{} `json:"details"`
+	Attachments     []Attachment           `json:"attachments"`
+	Tags            []string               `json:"tags"`
+	Points          int                    `json:"points"`
+	RejectionNote   string                 `json:"rejection_note,omitempty"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
+}
+
+type CompetitionRequest struct {
 	CompetitionName  string `json:"competition_name"`
-	CompetitionLevel string `json:"competition_level"` 
+	CompetitionLevel string `json:"competition_level"`
 	Rank             int    `json:"rank"`
 	MedalType        string `json:"medal_type"`
 }
 
-type PublicationReq struct {
+type PublicationRequest struct {
 	PublicationTitle string   `json:"publication_title"`
 	Authors          []string `json:"authors"`
 	Publisher        string   `json:"publisher"`
 	ISSN             string   `json:"issn"`
 }
 
-type OrganizationReq struct {
+type OrganizationRequest struct {
 	OrganizationName string `json:"organization_name"`
 	Position         string `json:"position"`
 	StartDate        string `json:"start_date"`
 	EndDate          string `json:"end_date"`
 }
 
-type VerifyAchievementReq struct {
-	Status        string `json:"status" binding:"required,oneof=verified rejected"`
-	RejectionNote string `json:"rejection_note,omitempty"` 
+type VerifyRequest struct {
+	Points int `json:"points"`
+}
+
+type RejectRequest struct {
+	RejectionNote string `json:"rejection_note" binding:"required"`
 }

@@ -15,8 +15,12 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 	v1 := api.Group("/v1")
 
 	userRepo := repo.NewUserRepo()
+	studentRepo := repo.NewStudentRepo()
+	achievementRepo := repo.NewAchievementRepo(pgDB, mongoDB)
+
 	authService := service.NewAuthService(userRepo)
 	userService := service.NewUserService(userRepo)
+	achievementSvc := service.NewAchievementService(achievementRepo, studentRepo)
 
 	auth := v1.Group("/auth")
 
@@ -36,4 +40,17 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 	users.Put("/:id", userService.UpdateUser)
 	users.Delete("/:id", userService.DeleteUser)
 	users.Put("/:id/role", userService.ChangeRole)
+
+	achievements := protected.Group("/achievements")
+	
+	achievements.Get("/", achievementSvc.List)
+	achievements.Get("/:id", achievementSvc.Get)
+	achievements.Post("/", achievementSvc.Create)
+	achievements.Put("/:id", achievementSvc.Update)
+	achievements.Delete("/:id", achievementSvc.Delete)
+	achievements.Post("/:id/submit", achievementSvc.Submit)
+	achievements.Post("/:id/verify", achievementSvc.Verify)
+	achievements.Post("/:id/reject", achievementSvc.Reject)
+	achievements.Get("/:id/history", achievementSvc.GetHistory)
+	achievements.Post("/:id/attachments", achievementSvc.UploadAttachment)
 }

@@ -5,7 +5,7 @@ CREATE TABLE achievement_references (
     status achievement_status_enum DEFAULT 'draft',
     submitted_at TIMESTAMP,
     verified_at TIMESTAMP,
-    verified_by UUID REFERENCES users(id) ON DELETE SET NULL, -- Dosen/Admin yang memverifikasi
+    verified_by UUID REFERENCES users(id) ON DELETE SET NULL, 
     rejection_note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

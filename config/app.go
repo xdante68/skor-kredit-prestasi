@@ -10,7 +10,6 @@ import (
 func NewApp() *fiber.App {
 	app := fiber.New()
 
-	// Middleware
 	app.Use(logger.New())
 	app.Use(recover.New())
 	app.Use(cors.New())

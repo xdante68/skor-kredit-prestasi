@@ -2,6 +2,7 @@ package model
 
 import (
 	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -12,12 +13,13 @@ const (
 	StatusSubmitted AchievementStatus = "submitted"
 	StatusVerified  AchievementStatus = "verified"
 	StatusRejected  AchievementStatus = "rejected"
+	StatusDeleted   AchievementStatus = "deleted"
 )
 
 type AchievementReference struct {
 	ID                 uuid.UUID         `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
 	StudentID          uuid.UUID         `gorm:"type:uuid;not null" json:"student_id"`
-	MongoAchievementID string            `gorm:"size:24;not null" json:"mongo_achievement_id"` 
+	MongoAchievementID string            `gorm:"size:24;not null" json:"mongo_achievement_id"`
 	Status             AchievementStatus `gorm:"type:achievement_status_enum;default:'draft'" json:"status"`
 	SubmittedAt        *time.Time        `json:"submitted_at"`
 	VerifiedAt         *time.Time        `json:"verified_at"`
