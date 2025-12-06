@@ -133,3 +133,15 @@ type VerifyRequest struct {
 type RejectRequest struct {
 	RejectionNote string `json:"rejection_note" binding:"required"`
 }
+
+type AchievementHistoryResponse struct {
+	ID            uuid.UUID  `json:"id"`
+	Title         string     `json:"title"`
+	Status        string     `json:"status"`
+	CreatedAt     time.Time  `json:"created_at"`
+	SubmittedAt   *time.Time `json:"submitted_at,omitempty"`
+	VerifiedAt    *time.Time `json:"verified_at,omitempty"`
+	VerifierName  string     `json:"verifier_name,omitempty"`
+	RejectionNote string     `json:"rejection_note,omitempty"`
+	Points        int        `json:"points,omitempty"`
+}

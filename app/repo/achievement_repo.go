@@ -14,6 +14,21 @@ import (
 	"gorm.io/gorm"
 )
 
+type AchievementRepository interface {
+	Create(studentID uuid.UUID, req model.CreateAchievementRequest) (*model.AchievementResponse, error)
+	FindByAchievementID(id uuid.UUID) (*model.AchievementResponse, error)
+	FindAll(role string, userID uuid.UUID, page, limit int, search, sortBy, order string) ([]model.AchievementResponse, int64, error)
+	Update(id uuid.UUID, req model.UpdateAchievementRequest) (*model.AchievementResponse, error)
+	UpdateStatus(id uuid.UUID, status string, verifierID *uuid.UUID, note string, points int) error
+	Delete(id uuid.UUID) error
+	AddAttachment(id uuid.UUID, attachment model.Attachment) error
+	mapToResponse(ref model.AchievementReference, mongoDoc model.AchievementMongo) *model.AchievementResponse
+	GetOwnerID(id uuid.UUID) (uuid.UUID, error)
+	IsAdvisor(advisorID uuid.UUID, achievementID uuid.UUID) (bool, error)
+	GetStatus(id uuid.UUID) (string, error)
+	GetHistory(id uuid.UUID) (*model.AchievementHistoryResponse, error)
+}
+
 type AchievementRepo struct {
 	pgDB    *gorm.DB
 	mongoDB *mongo.Database
@@ -39,9 +54,15 @@ func (r *AchievementRepo) Create(studentID uuid.UUID, req model.CreateAchievemen
 		details.OrganizationName = req.OrganizationDetails.OrganizationName
 		details.Position = req.OrganizationDetails.Position
 
-		layout := "2012-12-12"
-		start, _ := time.Parse(layout, req.OrganizationDetails.StartDate)
-		end, _ := time.Parse(layout, req.OrganizationDetails.EndDate)
+		layout := "2006-01-02"
+		start, err := time.Parse(layout, req.OrganizationDetails.StartDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid start_date format, expected YYYY-MM-DD: %w", err)
+		}
+		end, err := time.Parse(layout, req.OrganizationDetails.EndDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid end_date format, expected YYYY-MM-DD: %w", err)
+		}
 		details.Period = &model.OrganizationPeriod{
 			Start: start,
 			End:   end,
@@ -97,7 +118,7 @@ func (r *AchievementRepo) Create(studentID uuid.UUID, req model.CreateAchievemen
 	}, nil
 }
 
-func (r *AchievementRepo) FindByID(id uuid.UUID) (*model.AchievementResponse, error) {
+func (r *AchievementRepo) FindByAchievementID(id uuid.UUID) (*model.AchievementResponse, error) {
 	var ref model.AchievementReference
 	if err := r.pgDB.Preload("Student.User").Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", id).Error; err != nil {
 		return nil, err
@@ -123,7 +144,6 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 	query := r.pgDB.Preload("Student.User").Where("status != ?", model.StatusDeleted)
 
 	if search != "" {
-		// Search by title in MongoDB
 		coll := r.mongoDB.Collection("achievements")
 		filter := bson.M{"title": bson.M{"$regex": search, "$options": "i"}}
 		cursor, err := coll.Find(context.TODO(), filter)
@@ -225,10 +245,10 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 	return results, total, nil
 }
 
-func (r *AchievementRepo) Update(id uuid.UUID, req model.UpdateAchievementRequest) error {
+func (r *AchievementRepo) Update(id uuid.UUID, req model.UpdateAchievementRequest) (*model.AchievementResponse, error) {
 	var ref model.AchievementReference
 	if err := r.pgDB.Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", id).Error; err != nil {
-		return err
+		return nil, err
 	}
 
 	updateFields := bson.M{
@@ -244,27 +264,53 @@ func (r *AchievementRepo) Update(id uuid.UUID, req model.UpdateAchievementReques
 	if req.Description != nil {
 		updateFields["description"] = *req.Description
 	}
+	if req.EventDate != nil {
+		parsedDate, _ := time.Parse("2006-01-02", *req.EventDate)
+		updateFields["details.eventDate"] = parsedDate
+	}
 	if req.Tags != nil {
 		updateFields["tags"] = *req.Tags
 	}
 
 	if req.CompetitionDetails != nil {
-		updateFields["details"] = req.CompetitionDetails
+		updateFields["details.competitionName"] = req.CompetitionDetails.CompetitionName
+		updateFields["details.competitionLevel"] = req.CompetitionDetails.CompetitionLevel
+		updateFields["details.rank"] = req.CompetitionDetails.Rank
+		updateFields["details.medalType"] = req.CompetitionDetails.MedalType
 	} else if req.PublicationDetails != nil {
-		updateFields["details"] = req.PublicationDetails
+		updateFields["details.publicationTitle"] = req.PublicationDetails.PublicationTitle
+		updateFields["details.authors"] = req.PublicationDetails.Authors
+		updateFields["details.publisher"] = req.PublicationDetails.Publisher
+		updateFields["details.issn"] = req.PublicationDetails.ISSN
 	} else if req.OrganizationDetails != nil {
-		updateFields["details"] = req.OrganizationDetails
+		updateFields["details.organizationName"] = req.OrganizationDetails.OrganizationName
+		updateFields["details.position"] = req.OrganizationDetails.Position
+		if req.OrganizationDetails.StartDate != "" && req.OrganizationDetails.EndDate != "" {
+			layout := "2006-01-02"
+			start, err := time.Parse(layout, req.OrganizationDetails.StartDate)
+			if err != nil {
+				return nil, fmt.Errorf("invalid start_date format, expected YYYY-MM-DD: %w", err)
+			}
+			end, err := time.Parse(layout, req.OrganizationDetails.EndDate)
+			if err != nil {
+				return nil, fmt.Errorf("invalid end_date format, expected YYYY-MM-DD: %w", err)
+			}
+			updateFields["details.period"] = &model.OrganizationPeriod{
+				Start: start,
+				End:   end,
+			}
+		}
 	}
 
 	objID, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
 	coll := r.mongoDB.Collection("achievements")
 
-	updateData := bson.M{
-		"$set": updateFields,
+	_, err := coll.UpdateOne(context.TODO(), bson.M{"_id": objID}, bson.M{"$set": updateFields})
+	if err != nil {
+		return nil, err
 	}
 
-	_, err := coll.UpdateOne(context.TODO(), bson.M{"_id": objID}, updateData)
-	return err
+	return r.FindByAchievementID(id)
 }
 
 func (r *AchievementRepo) UpdateStatus(id uuid.UUID, status string, verifierID *uuid.UUID, note string, points int) error {
@@ -367,14 +413,21 @@ func (r *AchievementRepo) GetOwnerID(achievementID uuid.UUID) (uuid.UUID, error)
 	return ref.Student.UserID, nil
 }
 
-func (r *AchievementRepo) IsAdvisor(lecturerUserID uuid.UUID, achievementID uuid.UUID) bool {
+func (r *AchievementRepo) IsAdvisor(lecturerUserID uuid.UUID, achievementID uuid.UUID) (bool, error) {
 	var ref model.AchievementReference
 	err := r.pgDB.Joins("JOIN students ON students.id = achievement_references.student_id").
 		Joins("JOIN lecturers ON lecturers.id = students.advisor_id").
 		Where("achievement_references.id = ? AND lecturers.user_id = ? AND achievement_references.status != ?", achievementID, lecturerUserID, model.StatusDeleted).
 		First(&ref).Error
 
-	return err == nil
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (r *AchievementRepo) GetStatus(id uuid.UUID) (string, error) {
@@ -387,4 +440,36 @@ func (r *AchievementRepo) GetStatus(id uuid.UUID) (string, error) {
 		return "", err
 	}
 	return status, nil
+}
+
+func (r *AchievementRepo) GetHistory(id uuid.UUID) (*model.AchievementHistoryResponse, error) {
+	var ref model.AchievementReference
+	if err := r.pgDB.Preload("Verifier").Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+
+	var mongoDetail model.AchievementMongo
+	objID, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
+	coll := r.mongoDB.Collection("achievements")
+	err := coll.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&mongoDetail)
+	if err != nil {
+		return nil, errors.New("detail data missing in NoSQL")
+	}
+
+	verifierName := ""
+	if ref.Verifier != nil {
+		verifierName = ref.Verifier.FullName
+	}
+
+	return &model.AchievementHistoryResponse{
+		ID:            ref.ID,
+		Title:         mongoDetail.Title,
+		Status:        string(ref.Status),
+		CreatedAt:     ref.CreatedAt,
+		SubmittedAt:   ref.SubmittedAt,
+		VerifiedAt:    ref.VerifiedAt,
+		VerifierName:  verifierName,
+		RejectionNote: ref.RejectionNote,
+		Points:        mongoDetail.Points,
+	}, nil
 }
