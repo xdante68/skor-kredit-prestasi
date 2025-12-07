@@ -31,11 +31,11 @@ type LoginRequest struct {
 }
 
 type CreateUserRequest struct {
-	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	FullName string `json:"full_name" binding:"required"`
-	RoleID   string `json:"role_id" binding:"required"`
+	Username string `json:"username" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=6"`
+	FullName string `json:"full_name" validate:"required"`
+	Role     string `json:"role" validate:"required,oneof=admin mahasiswa dosen_wali"`
 }
 
 type UpdateUserRequest struct {
@@ -46,11 +46,11 @@ type UpdateUserRequest struct {
 }
 
 type LoginUser struct {
-	ID        string `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	CreatedAt string `json:"created_at"`
+	ID          string   `json:"id"`
+	Username    string   `json:"username"`
+	FullName    string   `json:"fullName"`
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
 }
 
 type UserResponse struct {
@@ -68,10 +68,11 @@ type ProfileData struct {
 }
 
 type JWTClaims struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Username string    `json:"username"`
-	Role     string    `json:"role"`
-	Type     string    `json:"type"`
+	UserID      uuid.UUID `json:"user_id"`
+	Username    string    `json:"username"`
+	Role        string    `json:"role"`
+	Permissions []string  `json:"permissions"`
+	Type        string    `json:"type"`
 	jwt.RegisteredClaims
 }
 
@@ -91,5 +92,5 @@ type RefreshTokenResponse struct {
 }
 
 type ChangeRoleRequest struct {
-	RoleID string `json:"role_id" validate:"required,uuid"`
+	Role string `json:"role" validate:"required,oneof=admin mahasiswa dosen_wali"`
 }

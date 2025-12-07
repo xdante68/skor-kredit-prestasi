@@ -28,3 +28,24 @@ func LoadEnv() {
 	Env.MongoDB = os.Getenv("MONGO_DB_NAME")
 	Env.JWTSecret = os.Getenv("JWT_SECRET")
 }
+
+func GetDBDSN() string {
+	return Env.DBDSN
+}
+func GetMongoURI() string {
+	return Env.MongoURI
+}
+
+func GetMongoDB() string {
+	return Env.MongoDB
+}
+func GetJWTSecret() string {
+	return Env.JWTSecret
+}
+
+func GetAppPort() string {
+	if Env.AppPort == "" {
+		return "3000"
+	}
+	return Env.AppPort
+}

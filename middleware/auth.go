@@ -73,27 +73,31 @@ func AuthRequired() fiber.Handler {
 	}
 }
 
-func RolesRequired(roles ...string) fiber.Handler {
+func PermissionsRequired(requiredPermissions ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userRole := c.Locals("role")
-		if userRole == nil {
+		claims := c.Locals("user")
+		if claims == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Role not found",
+				Message: "User claims not found",
 			})
 		}
 
-		roleStr, ok := userRole.(string)
+		jwtClaims, ok := claims.(*model.JWTClaims)
 		if !ok {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Invalid role format",
+				Message: "Invalid claims format",
 			})
 		}
 
-		for _, role := range roles {
-			if roleStr == role {
-				return c.Next()
+		userPermissions := jwtClaims.Permissions
+
+		for _, required := range requiredPermissions {
+			for _, userPerm := range userPermissions {
+				if required == userPerm {
+					return c.Next()
+				}
 			}
 		}
 
@@ -102,16 +106,4 @@ func RolesRequired(roles ...string) fiber.Handler {
 			Message: "Forbidden access",
 		})
 	}
-}
-
-func AdminOnly(c *fiber.Ctx) error {
-	return RolesRequired(model.RoleAdmin)(c)
-}
-
-func MahasiswaOnly(c *fiber.Ctx) error {
-	return RolesRequired(model.RoleMahasiswa)(c)
-}
-
-func DosenWaliOnly(c *fiber.Ctx) error {
-	return RolesRequired(model.RoleDosenWali)(c)
 }

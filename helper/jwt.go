@@ -2,24 +2,25 @@ package helper
 
 import (
 	"fiber/skp/app/model"
-	"os"
+	"fiber/skp/config"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateToken(u model.User) (string, error) {
+func GenerateToken(u model.User, permissions []string) (string, error) {
 	claims := model.JWTClaims{
-		UserID:   u.ID,
-		Username: u.Username,
-		Role:     u.Role.Name,
-		Type:     "access",
+		UserID:      u.ID,
+		Username:    u.Username,
+		Role:        u.Role.Name,
+		Permissions: permissions,
+		Type:        "access",
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-	secret := os.Getenv("JWT_SECRET")
+	secret := config.GetJWTSecret()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(secret))
 }
@@ -31,17 +32,17 @@ func GenerateRefreshToken(u model.User) (string, error) {
 		Role:     u.Role.Name,
 		Type:     "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), 
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-	secret := os.Getenv("JWT_SECRET")
+	secret := config.GetJWTSecret()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(secret))
 }
 
 func ValidateToken(tokenString string) (*model.JWTClaims, error) {
-	secret := os.Getenv("JWT_SECRET")
+	secret := config.GetJWTSecret()
 	token, err := jwt.ParseWithClaims(tokenString, &model.JWTClaims{}, func(t *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	})
