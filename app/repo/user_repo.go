@@ -33,10 +33,10 @@ func NewUserRepo(db *sql.DB) *UserRepo {
 }
 
 var userSortWhitelist = map[string]string{
-	"created_at": "users.created_at",
-	"username":   "users.username",
-	"email":      "users.email",
-	"full_name":  "users.full_name",
+	"created_at": "u.created_at",
+	"username":   "u.username",
+	"email":      "u.email",
+	"full_name":  "u.full_name",
 }
 
 func (r *UserRepo) Create(user *model.User) error {
@@ -69,14 +69,19 @@ func (r *UserRepo) FindByUsername(username string) (*model.User, error) {
 
 	var user model.User
 	var roleID, roleName, roleDesc sql.NullString
+	var refreshToken sql.NullString
 
 	err := r.DB.QueryRow(query, username).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.FullName,
-		&user.RoleID, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.RefreshToken,
+		&user.RoleID, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &refreshToken,
 		&roleID, &roleName, &roleDesc,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if refreshToken.Valid {
+		user.RefreshToken = refreshToken.String
 	}
 
 	if roleID.Valid {
@@ -133,14 +138,19 @@ func (r *UserRepo) FindByUserID(id uuid.UUID) (*model.User, error) {
 
 	var user model.User
 	var roleID, roleName, roleDesc sql.NullString
+	var refreshToken sql.NullString
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.FullName,
-		&user.RoleID, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &user.RefreshToken,
+		&user.RoleID, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &refreshToken,
 		&roleID, &roleName, &roleDesc,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if refreshToken.Valid {
+		user.RefreshToken = refreshToken.String
 	}
 
 	if roleID.Valid {
@@ -199,7 +209,7 @@ func (r *UserRepo) FindAll(page, limit int, search, sortBy, order string) ([]mod
 	if sortColumn, ok := userSortWhitelist[sortBy]; ok {
 		query += fmt.Sprintf(" ORDER BY %s %s", sortColumn, order)
 	} else {
-		query += " ORDER BY users.created_at DESC"
+		query += " ORDER BY u.created_at DESC"
 	}
 
 	offset := (page - 1) * limit

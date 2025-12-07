@@ -120,7 +120,6 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate base request
 	if err := helper.ValidateStruct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
@@ -129,7 +128,6 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate role-specific data
 	if req.Role == model.RoleMahasiswa {
 		if req.Student == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
@@ -160,20 +158,38 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 		}
 	}
 
-	hashedPwd, err := helper.HashPassword(req.Password)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
-			Success: false,
-			Message: "Gagal menghash password",
-			Error:   err.Error(),
-		})
-	}
-
 	roleData, err := s.userRepo.FindRoleByName(req.Role)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
 			Message: "Role tidak valid: " + req.Role,
+			Error:   err.Error(),
+		})
+	}
+
+	if roleData.Name == model.RoleMahasiswa {
+		if exists, _ := s.studentRepo.ExistsByStudentID(req.Username); exists {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Username (student_id) sudah terdaftar",
+				Error:   "Data duplicated",
+			})
+		}
+	} else if roleData.Name == model.RoleDosenWali {
+		if exists, _ := s.lecturerRepo.ExistsByLecturerID(req.Username); exists {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Username (lecturer_id) sudah terdaftar",
+				Error:   "Data duplicated",
+			})
+		}
+	}
+
+	hashedPwd, err := helper.HashPassword(req.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Gagal menghash password",
 			Error:   err.Error(),
 		})
 	}
@@ -197,7 +213,7 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 	if roleData.Name == model.RoleMahasiswa {
 		student := model.Student{
 			UserID:       newUser.ID,
-			StudentID:    req.Student.StudentID,
+			StudentID:    req.Username, 
 			ProgramStudy: req.Student.ProgramStudy,
 			AcademicYear: req.Student.AcademicYear,
 		}
@@ -212,7 +228,7 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 	} else if roleData.Name == model.RoleDosenWali {
 		lecturer := model.Lecturer{
 			UserID:     newUser.ID,
-			LecturerID: req.Lecturer.LecturerID,
+			LecturerID: req.Username,
 			Department: req.Lecturer.Department,
 		}
 		if err := s.lecturerRepo.Create(&lecturer); err != nil {
@@ -323,6 +339,10 @@ func (s *UserService) DeleteUser(c *fiber.Ctx) error {
 			Error:   err.Error(),
 		})
 	}
+
+	_ = s.studentRepo.DeleteByUserID(userUUID)
+	_ = s.lecturerRepo.DeleteByUserID(userUUID)
+
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
 		Message: "User berhasil dihapus",
@@ -358,7 +378,6 @@ func (s *UserService) ChangeRole(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate role-specific data
 	if req.Role == model.RoleMahasiswa {
 		if req.Student == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
@@ -415,44 +434,36 @@ func (s *UserService) ChangeRole(c *fiber.Ctx) error {
 		})
 	}
 
+	_ = s.studentRepo.DeleteByUserID(user.ID)
+	_ = s.lecturerRepo.DeleteByUserID(user.ID)
+
 	if roleData.Name == model.RoleMahasiswa {
-		_ = s.lecturerRepo.DeleteByUserID(user.ID)
-		exists, _ := s.studentRepo.Exists(user.ID)
-		if !exists {
-			student := model.Student{
-				UserID:       user.ID,
-				StudentID:    req.Student.StudentID,
-				ProgramStudy: req.Student.ProgramStudy,
-				AcademicYear: req.Student.AcademicYear,
-			}
-			if err := s.studentRepo.Create(&student); err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
-					Success: false,
-					Message: "Role berhasil diupdate tetapi gagal membuat profile mahasiswa",
-					Error:   err.Error(),
-				})
-			}
+		student := model.Student{
+			UserID:       user.ID,
+			StudentID:    user.Username,
+			ProgramStudy: req.Student.ProgramStudy,
+			AcademicYear: req.Student.AcademicYear,
+		}
+		if err := s.studentRepo.Create(&student); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Role berhasil diupdate tetapi gagal membuat profile mahasiswa",
+				Error:   err.Error(),
+			})
 		}
 	} else if roleData.Name == model.RoleDosenWali {
-		_ = s.studentRepo.DeleteByUserID(user.ID)
-		exists, _ := s.lecturerRepo.Exists(user.ID)
-		if !exists {
-			lecturer := model.Lecturer{
-				UserID:     user.ID,
-				LecturerID: req.Lecturer.LecturerID,
-				Department: req.Lecturer.Department,
-			}
-			if err := s.lecturerRepo.Create(&lecturer); err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
-					Success: false,
-					Message: "Role berhasil diupdate tetapi gagal membuat profile dosen wali",
-					Error:   err.Error(),
-				})
-			}
+		lecturer := model.Lecturer{
+			UserID:     user.ID,
+			LecturerID: user.Username,
+			Department: req.Lecturer.Department,
 		}
-	} else if roleData.Name == model.RoleAdmin {
-		_ = s.studentRepo.DeleteByUserID(user.ID)
-		_ = s.lecturerRepo.DeleteByUserID(user.ID)
+		if err := s.lecturerRepo.Create(&lecturer); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Role berhasil diupdate tetapi gagal membuat profile dosen wali",
+				Error:   err.Error(),
+			})
+		}
 	}
 
 	return c.JSON(model.SuccessMessageResponse{

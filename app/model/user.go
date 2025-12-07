@@ -41,13 +41,11 @@ type CreateUserRequest struct {
 }
 
 type CreateStudentData struct {
-	StudentID    string `json:"student_id" validate:"required"`
 	ProgramStudy string `json:"program_study" validate:"required"`
 	AcademicYear string `json:"academic_year" validate:"required"`
 }
 
 type CreateLecturerData struct {
-	LecturerID string `json:"lecturer_id" validate:"required"`
 	Department string `json:"department" validate:"required"`
 }
 

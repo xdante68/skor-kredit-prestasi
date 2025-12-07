@@ -170,6 +170,13 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 		})
 	}
 
+	if len(bearer) < 7 || !strings.HasPrefix(strings.ToLower(bearer), "bearer ") {
+		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Format token tidak valid",
+		})
+	}
+
 	tokenString := strings.TrimSpace(bearer[7:])
 
 	claims, err := helper.ValidateToken(tokenString)
