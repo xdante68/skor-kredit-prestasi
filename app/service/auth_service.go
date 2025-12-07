@@ -25,14 +25,14 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid input",
+			Message: "Input tidak valid",
 		})
 	}
 
 	if req.Username == "" || req.Password == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Username and Password are required",
+			Message: "Username dan Password harus diisi",
 		})
 	}
 
@@ -40,18 +40,17 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid credentials",
+			Message: "Kredensial tidak valid",
 		})
 	}
 
 	if !helper.CheckPasswordHash(req.Password, user.PasswordHash) {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid credentials",
+			Message: "Kredensial tidak valid",
 		})
 	}
 
-	// Build permissions list from role
 	var permissions []string
 	for _, p := range user.Role.Permissions {
 		permissions = append(permissions, p.Name)
@@ -61,7 +60,7 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to generate token",
+			Message: "Gagal menghasilkan token",
 		})
 	}
 
@@ -69,7 +68,7 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to generate refresh token",
+			Message: "Gagal menghasilkan token refresh",
 		})
 	}
 
@@ -77,13 +76,13 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	if err := s.repo.Update(user); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to save refresh token",
+			Message: "Gagal menyimpan token refresh",
 		})
 	}
 
 	return c.JSON(model.LoginSuccessResponse{
 		Success: true,
-		Message: "Login successful",
+		Message: "Login berhasil",
 		Data: model.LoginResponse{
 			User: model.LoginUser{
 				ID:          user.ID.String(),
@@ -105,7 +104,7 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Refresh token required",
+			Message: "Token refresh diperlukan",
 		})
 	}
 
@@ -113,14 +112,14 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid refresh token",
+			Message: "Token refresh tidak valid",
 		})
 	}
 
 	if claims.Type != "refresh" {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid token type",
+			Message: "Token refresh tidak valid",
 		})
 	}
 
@@ -128,14 +127,14 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "User not found",
+			Message: "User tidak ditemukan",
 		})
 	}
 
 	if user.RefreshToken != req.RefreshToken {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid refresh token",
+			Message: "Token refresh tidak valid",
 		})
 	}
 
@@ -148,13 +147,13 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to generate token",
+			Message: "Gagal menghasilkan token",
 		})
 	}
 
 	return c.JSON(model.SuccessResponse[model.RefreshTokenResponse]{
 		Success: true,
-		Message: "Token refreshed",
+		Message: "Token refresh berhasil",
 		Data: model.RefreshTokenResponse{
 			Token: newToken,
 		},
@@ -167,7 +166,7 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 	if bearer == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Token required",
+			Message: "Token diperlukan",
 		})
 	}
 
@@ -177,7 +176,7 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid token",
+			Message: "Token tidak valid",
 		})
 	}
 
@@ -189,7 +188,7 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 	if err := s.repo.AddBlacklistToken(blacklistedToken); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to logout",
+			Message: "Gagal logout",
 		})
 	}
 
@@ -207,13 +206,13 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 	}
 
 	if err := s.repo.ClearRefreshToken(claims.UserID); err != nil {
-		log.Printf("Failed to clear refresh token for user %s: %v", claims.UserID, err)
+		log.Printf("Gagal menghapus refresh token untuk user %s: %v", claims.UserID, err)
 
 	}
 
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Successfully logged out",
+		Message: "Logout berhasil",
 	})
 }
 
@@ -228,7 +227,7 @@ func (s *AuthService) Profile(c *fiber.Ctx) error {
 	default:
 		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid user session",
+			Message: "User tidak ditemukan",
 		})
 	}
 

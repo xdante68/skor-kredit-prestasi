@@ -11,11 +11,17 @@ import (
 )
 
 type UserService struct {
-	userRepo *repo.UserRepo
+	userRepo     repo.UserRepository
+	studentRepo  repo.StudentRepository
+	lecturerRepo repo.LecturerRepository
 }
 
-func NewUserService(userRepo *repo.UserRepo) *UserService {
-	return &UserService{userRepo: userRepo}
+func NewUserService(userRepo repo.UserRepository, studentRepo repo.StudentRepository, lecturerRepo repo.LecturerRepository) *UserService {
+	return &UserService{
+		userRepo:     userRepo,
+		studentRepo:  studentRepo,
+		lecturerRepo: lecturerRepo,
+	}
 }
 
 // GET /api/v1/users
@@ -35,7 +41,7 @@ func (s *UserService) GetAllUsers(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to fetch users",
+			Message: "Gagal memuat data user",
 			Error:   err.Error(),
 		})
 	}
@@ -77,16 +83,16 @@ func (s *UserService) GetUser(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid userId",
+			Message: "user_id tidak valid",
 			Error:   err.Error(),
 		})
 	}
 
-	user, err := s.userRepo.FindByID(userUUID)
+	user, err := s.userRepo.FindByUserID(userUUID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "User not found",
+			Message: "User tidak ditemukan",
 			Error:   err.Error(),
 		})
 	}
@@ -109,25 +115,65 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid input",
+			Message: "Input tidak valid",
 			Error:   err.Error(),
 		})
+	}
+
+	// Validate base request
+	if err := helper.ValidateStruct(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Validasi gagal",
+			Error:   helper.FormatValidationErrors(err),
+		})
+	}
+
+	// Validate role-specific data
+	if req.Role == model.RoleMahasiswa {
+		if req.Student == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Data mahasiswa diperlukan untuk role mahasiswa",
+			})
+		}
+		if err := helper.ValidateStruct(*req.Student); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Validasi data mahasiswa gagal",
+				Error:   helper.FormatValidationErrors(err),
+			})
+		}
+	} else if req.Role == model.RoleDosenWali {
+		if req.Lecturer == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Data dosen wali diperlukan untuk role dosen_wali",
+			})
+		}
+		if err := helper.ValidateStruct(*req.Lecturer); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Validasi data dosen wali gagal",
+				Error:   helper.FormatValidationErrors(err),
+			})
+		}
 	}
 
 	hashedPwd, err := helper.HashPassword(req.Password)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to hash password",
+			Message: "Gagal menghash password",
 			Error:   err.Error(),
 		})
 	}
 
-	roleUUID, err := uuid.Parse(req.RoleID)
+	roleData, err := s.userRepo.FindRoleByName(req.Role)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid roleId",
+			Message: "Role tidak valid: " + req.Role,
 			Error:   err.Error(),
 		})
 	}
@@ -137,20 +183,51 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 		Email:        req.Email,
 		PasswordHash: hashedPwd,
 		FullName:     req.FullName,
-		RoleID:       &roleUUID,
+		RoleID:       &roleData.ID,
 	}
 
 	if err := s.userRepo.Create(&newUser); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to create user",
+			Message: "Gagal membuat user",
 			Error:   err.Error(),
 		})
 	}
 
+	if roleData.Name == model.RoleMahasiswa {
+		student := model.Student{
+			UserID:       newUser.ID,
+			StudentID:    req.Student.StudentID,
+			ProgramStudy: req.Student.ProgramStudy,
+			AcademicYear: req.Student.AcademicYear,
+		}
+		if err := s.studentRepo.Create(&student); err != nil {
+			_ = s.userRepo.Delete(newUser.ID)
+			return c.Status(500).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "User berhasil dibuat tetapi gagal membuat profile mahasiswa. Rolled back.",
+				Error:   err.Error(),
+			})
+		}
+	} else if roleData.Name == model.RoleDosenWali {
+		lecturer := model.Lecturer{
+			UserID:     newUser.ID,
+			LecturerID: req.Lecturer.LecturerID,
+			Department: req.Lecturer.Department,
+		}
+		if err := s.lecturerRepo.Create(&lecturer); err != nil {
+			_ = s.userRepo.Delete(newUser.ID)
+			return c.Status(500).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "User berhasil dibuat tetapi gagal membuat profile dosen wali. Rolled back.",
+				Error:   err.Error(),
+			})
+		}
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "User created successfully",
+		Message: "User berhasil dibuat",
 	})
 }
 
@@ -161,7 +238,7 @@ func (s *UserService) UpdateUser(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid userId",
+			Message: "user_id tidak valid",
 			Error:   err.Error(),
 		})
 	}
@@ -170,16 +247,24 @@ func (s *UserService) UpdateUser(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid input",
+			Message: "Input tidak valid",
 			Error:   err.Error(),
 		})
 	}
 
-	user, err := s.userRepo.FindByID(userUUID)
+	if err := helper.ValidateStruct(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Validasi gagal",
+			Error:   helper.FormatValidationErrors(err),
+		})
+	}
+
+	user, err := s.userRepo.FindByUserID(userUUID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "User not found",
+			Message: "User tidak ditemukan",
 			Error:   err.Error(),
 		})
 	}
@@ -198,7 +283,7 @@ func (s *UserService) UpdateUser(c *fiber.Ctx) error {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Failed to hash password",
+				Message: "Gagal menghash password",
 				Error:   err.Error(),
 			})
 		}
@@ -208,14 +293,14 @@ func (s *UserService) UpdateUser(c *fiber.Ctx) error {
 	if err := s.userRepo.Update(user); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to update user",
+			Message: "Gagal mengupdate user",
 			Error:   err.Error(),
 		})
 	}
 
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "User updated",
+		Message: "User berhasil diupdate",
 	})
 }
 
@@ -226,7 +311,7 @@ func (s *UserService) DeleteUser(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid userId",
+			Message: "user_id tidak valid",
 			Error:   err.Error(),
 		})
 	}
@@ -234,13 +319,13 @@ func (s *UserService) DeleteUser(c *fiber.Ctx) error {
 	if err := s.userRepo.Delete(userUUID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to delete user",
+			Message: "Gagal menghapus user",
 			Error:   err.Error(),
 		})
 	}
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "User deleted",
+		Message: "User berhasil dihapus",
 	})
 }
 
@@ -251,38 +336,127 @@ func (s *UserService) ChangeRole(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid userId",
+			Message: "user_id tidak valid",
 			Error:   err.Error(),
 		})
 	}
 
 	var req model.ChangeRoleRequest
-	if err := c.BodyParser(&req); err != nil || req.RoleID == "" {
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "RoleId required",
+			Message: "Input tidak valid",
+			Error:   err.Error(),
 		})
 	}
 
-	roleUUID, err := uuid.Parse(req.RoleID)
+	if err := helper.ValidateStruct(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Validasi gagal",
+			Error:   helper.FormatValidationErrors(err),
+		})
+	}
+
+	// Validate role-specific data
+	if req.Role == model.RoleMahasiswa {
+		if req.Student == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Data mahasiswa diperlukan untuk role mahasiswa",
+			})
+		}
+		if err := helper.ValidateStruct(*req.Student); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Validasi data mahasiswa gagal",
+				Error:   helper.FormatValidationErrors(err),
+			})
+		}
+	} else if req.Role == model.RoleDosenWali {
+		if req.Lecturer == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Data dosen wali diperlukan untuk role dosen_wali",
+			})
+		}
+		if err := helper.ValidateStruct(*req.Lecturer); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Validasi data dosen wali gagal",
+				Error:   helper.FormatValidationErrors(err),
+			})
+		}
+	}
+
+	roleData, err := s.userRepo.FindRoleByName(req.Role)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid roleId",
+			Message: "Role tidak valid: " + req.Role,
 			Error:   err.Error(),
 		})
 	}
 
-	if err := s.userRepo.UpdateRole(userUUID, roleUUID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+	user, err := s.userRepo.FindByUserID(userUUID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to update role",
+			Message: "User tidak ditemukan",
 			Error:   err.Error(),
 		})
+	}
+
+	if err := s.userRepo.UpdateRole(userUUID, roleData.ID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Gagal mengupdate role",
+			Error:   err.Error(),
+		})
+	}
+
+	if roleData.Name == model.RoleMahasiswa {
+		_ = s.lecturerRepo.DeleteByUserID(user.ID)
+		exists, _ := s.studentRepo.Exists(user.ID)
+		if !exists {
+			student := model.Student{
+				UserID:       user.ID,
+				StudentID:    req.Student.StudentID,
+				ProgramStudy: req.Student.ProgramStudy,
+				AcademicYear: req.Student.AcademicYear,
+			}
+			if err := s.studentRepo.Create(&student); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+					Success: false,
+					Message: "Role berhasil diupdate tetapi gagal membuat profile mahasiswa",
+					Error:   err.Error(),
+				})
+			}
+		}
+	} else if roleData.Name == model.RoleDosenWali {
+		_ = s.studentRepo.DeleteByUserID(user.ID)
+		exists, _ := s.lecturerRepo.Exists(user.ID)
+		if !exists {
+			lecturer := model.Lecturer{
+				UserID:     user.ID,
+				LecturerID: req.Lecturer.LecturerID,
+				Department: req.Lecturer.Department,
+			}
+			if err := s.lecturerRepo.Create(&lecturer); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+					Success: false,
+					Message: "Role berhasil diupdate tetapi gagal membuat profile dosen wali",
+					Error:   err.Error(),
+				})
+			}
+		}
+	} else if roleData.Name == model.RoleAdmin {
+		_ = s.studentRepo.DeleteByUserID(user.ID)
+		_ = s.lecturerRepo.DeleteByUserID(user.ID)
 	}
 
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Role updated",
+		Message: "Role berhasil diupdate",
 	})
 }

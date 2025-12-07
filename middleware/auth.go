@@ -9,8 +9,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 func AuthRequired() fiber.Handler {
@@ -19,14 +17,14 @@ func AuthRequired() fiber.Handler {
 		if bearer == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Token not found",
+				Message: "Token tidak ditemukan",
 			})
 		}
 
 		if len(bearer) < 7 || !strings.EqualFold(bearer[:7], "Bearer ") {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Bearer format wrong",
+				Message: "Format (Bearer) token tidak valid",
 			})
 		}
 		token := strings.TrimSpace(bearer[7:])
@@ -35,30 +33,30 @@ func AuthRequired() fiber.Handler {
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Token invalid",
+				Message: "Token tidak valid",
 			})
 		}
 
 		if claims.Type != "access" {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Token type invalid",
+				Message: "Tipe token tidak valid",
 			})
 		}
 
-		var blacklistedToken model.BlacklistedToken
-
-		if err := db.GetDB().Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Where("token = ?", token).First(&blacklistedToken).Error; err == nil {
+		var exists bool
+		blacklistErr := db.GetDB().QueryRow("SELECT EXISTS(SELECT 1 FROM blacklisted_tokens WHERE token = $1)", token).Scan(&exists)
+		if blacklistErr == nil && exists {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Token blacklisted",
+				Message: "Token telah di blacklist",
 			})
 		}
 
 		if claims == nil || claims.UserID == uuid.Nil || claims.Username == "" || claims.Role == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Token claim incomplete",
+				Message: "Claim token tidak lengkap",
 			})
 		}
 
@@ -79,7 +77,7 @@ func PermissionsRequired(requiredPermissions ...string) fiber.Handler {
 		if claims == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "User claims not found",
+				Message: "Claim user tidak ditemukan",
 			})
 		}
 
@@ -87,7 +85,7 @@ func PermissionsRequired(requiredPermissions ...string) fiber.Handler {
 		if !ok {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Invalid claims format",
+				Message: "Format claim tidak valid",
 			})
 		}
 
@@ -103,7 +101,7 @@ func PermissionsRequired(requiredPermissions ...string) fiber.Handler {
 
 		return c.Status(fiber.StatusForbidden).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Forbidden access",
+			Message: "Akses dilarang",
 		})
 	}
 }

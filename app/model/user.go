@@ -8,21 +8,21 @@ import (
 )
 
 type User struct {
-	ID           uuid.UUID  `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
-	Username     string     `gorm:"size:50;unique;not null" json:"username"`
-	Email        string     `gorm:"size:100;unique;not null" json:"email"`
-	PasswordHash string     `gorm:"size:255;not null" json:"-"`
-	FullName     string     `gorm:"size:100;not null" json:"full_name"`
-	RoleID       *uuid.UUID `gorm:"type:uuid" json:"role_id"`
-	IsActive     bool       `gorm:"default:true" json:"is_active"`
-	CreatedAt    time.Time  `gorm:"default:CURRENT_TIMESTAMP" json:"created_at"`
-	UpdatedAt    time.Time  `gorm:"default:CURRENT_TIMESTAMP" json:"updated_at"`
-	RefreshToken string     `gorm:"type:text" json:"-"`
+	ID           uuid.UUID  `json:"id"`
+	Username     string     `json:"username"`
+	Email        string     `json:"email"`
+	PasswordHash string     `json:"-"`
+	FullName     string     `json:"full_name"`
+	RoleID       *uuid.UUID `json:"role_id"`
+	IsActive     bool       `json:"is_active"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	RefreshToken string     `json:"-"`
 
 	// Relasi
-	Role     Role      `gorm:"foreignKey:RoleID" json:"role,omitempty"`
-	Student  *Student  `gorm:"foreignKey:UserID" json:"student,omitempty"`
-	Lecturer *Lecturer `gorm:"foreignKey:UserID" json:"lecturer,omitempty"`
+	Role     Role      `json:"role,omitempty"`
+	Student  *Student  `json:"student,omitempty"`
+	Lecturer *Lecturer `json:"lecturer,omitempty"`
 }
 
 type LoginRequest struct {
@@ -31,11 +31,24 @@ type LoginRequest struct {
 }
 
 type CreateUserRequest struct {
-	Username string `json:"username" validate:"required"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=6"`
-	FullName string `json:"full_name" validate:"required"`
-	Role     string `json:"role" validate:"required,oneof=admin mahasiswa dosen_wali"`
+	Username string              `json:"username" validate:"required"`
+	Email    string              `json:"email" validate:"required,email"`
+	Password string              `json:"password" validate:"required,min=6"`
+	FullName string              `json:"full_name" validate:"required"`
+	Role     string              `json:"role" validate:"required,oneof=admin mahasiswa dosen_wali"`
+	Student  *CreateStudentData  `json:"student,omitempty"`
+	Lecturer *CreateLecturerData `json:"lecturer,omitempty"`
+}
+
+type CreateStudentData struct {
+	StudentID    string `json:"student_id" validate:"required"`
+	ProgramStudy string `json:"program_study" validate:"required"`
+	AcademicYear string `json:"academic_year" validate:"required"`
+}
+
+type CreateLecturerData struct {
+	LecturerID string `json:"lecturer_id" validate:"required"`
+	Department string `json:"department" validate:"required"`
 }
 
 type UpdateUserRequest struct {
@@ -77,9 +90,9 @@ type JWTClaims struct {
 }
 
 type BlacklistedToken struct {
-	ID        uint      `gorm:"primaryKey"`
-	Token     string    `gorm:"uniqueIndex;not null"`
-	ExpiresAt time.Time `gorm:"not null"`
+	ID        uint
+	Token     string
+	ExpiresAt time.Time
 	CreatedAt time.Time
 }
 
@@ -92,5 +105,7 @@ type RefreshTokenResponse struct {
 }
 
 type ChangeRoleRequest struct {
-	Role string `json:"role" validate:"required,oneof=admin mahasiswa dosen_wali"`
+	Role     string              `json:"role" validate:"required,oneof=admin mahasiswa dosen_wali"`
+	Student  *CreateStudentData  `json:"student,omitempty"`
+	Lecturer *CreateLecturerData `json:"lecturer,omitempty"`
 }

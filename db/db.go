@@ -2,67 +2,73 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"log"
-	"os"
 	"time"
 
-	"github.com/joho/godotenv"
+	"fiber/skp/config"
+
+	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 var (
-	DB    *gorm.DB
+	DB    *sql.DB
 	Mongo *mongo.Database
 )
 
 func ConnectDB() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found")
-	}
+	config.LoadEnv()
 
 	connectPostgres()
 	connectMongo()
 }
 
 func connectPostgres() {
-	dsn := os.Getenv("DB_DSN")
+	dsn := config.GetDBDSN()
 
 	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	DB, err = sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatal("Failed to connect to PostgreSQL:", err)
+		log.Fatal("Gagal terhubung ke PostgreSQL:", err)
 	}
 
-	log.Println("Connected to PostgreSQL successfully")
+	if err = DB.Ping(); err != nil {
+		log.Fatal("Gagal ping PostgreSQL:", err)
+	}
+
+	DB.SetMaxOpenConns(25)
+	DB.SetMaxIdleConns(5)
+	DB.SetConnMaxLifetime(5 * time.Minute)
+
+	log.Println("Berhasil terhubung ke PostgreSQL")
 }
 
 func connectMongo() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	mongoURI := os.Getenv("MONGO_URI")
+	mongoURI := config.GetMongoURI()
 	clientOptions := options.Client().ApplyURI(mongoURI)
 
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal("Failed to connect to MongoDB:", err)
+		log.Fatal("Gagal terhubung ke MongoDB:", err)
 	}
 
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		log.Fatal("Failed to ping MongoDB:", err)
+		log.Fatal("Gagal ping MongoDB:", err)
 	}
 
-	dbName := os.Getenv("MONGO_DB_NAME")
+	dbName := config.GetMongoDB()
 	Mongo = client.Database(dbName)
 
-	log.Println("Connected to MongoDB successfully")
+	log.Println("Berhasil terhubung ke MongoDB")
 }
 
-func GetDB() *gorm.DB {
+func GetDB() *sql.DB {
 	return DB
 }
 
