@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fiber/skp/app/model"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gorm"
 )
 
 type AchievementRepository interface {
@@ -30,11 +30,11 @@ type AchievementRepository interface {
 }
 
 type AchievementRepo struct {
-	pgDB    *gorm.DB
+	pgDB    *sql.DB
 	mongoDB *mongo.Database
 }
 
-func NewAchievementRepo(pgDB *gorm.DB, mongoDB *mongo.Database) *AchievementRepo {
+func NewAchievementRepo(pgDB *sql.DB, mongoDB *mongo.Database) *AchievementRepo {
 	return &AchievementRepo{pgDB: pgDB, mongoDB: mongoDB}
 }
 
@@ -78,8 +78,8 @@ func (r *AchievementRepo) Create(studentID uuid.UUID, req model.CreateAchievemen
 		"description":     req.Description,
 		"details":         details,
 		"tags":            req.Tags,
-		"attachments":     []interface{}{}, // Default kosong
-		"points":          0,               // Default 0
+		"attachments":     []interface{}{},
+		"points":          0,
 		"createdAt":       now,
 		"updatedAt":       now,
 	}
@@ -91,18 +91,20 @@ func (r *AchievementRepo) Create(studentID uuid.UUID, req model.CreateAchievemen
 	}
 	oid := res.InsertedID.(primitive.ObjectID)
 
-	pgData := model.AchievementReference{
-		StudentID:          studentID,
-		MongoAchievementID: oid.Hex(),
-		Status:             "draft",
-	}
+	query := `
+		INSERT INTO achievement_references (student_id, mongo_achievement_id, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id`
 
-	if err := r.pgDB.Create(&pgData).Error; err != nil {
+	var pgID uuid.UUID
+	err = r.pgDB.QueryRow(query, studentID, oid.Hex(), "draft", now, now).Scan(&pgID)
+	if err != nil {
 		coll.DeleteOne(context.TODO(), bson.M{"_id": oid})
 		return nil, err
 	}
+
 	return &model.AchievementResponse{
-		ID:              pgData.ID,
+		ID:              pgID,
 		MongoID:         oid.Hex(),
 		StudentID:       studentID,
 		Status:          "draft",
@@ -119,16 +121,41 @@ func (r *AchievementRepo) Create(studentID uuid.UUID, req model.CreateAchievemen
 }
 
 func (r *AchievementRepo) FindByAchievementID(id uuid.UUID) (*model.AchievementResponse, error) {
+	query := `
+		SELECT ar.id, ar.student_id, ar.mongo_achievement_id, ar.status, ar.rejection_note, ar.created_at, ar.updated_at,
+		       s.id, u.full_name
+		FROM achievement_references ar
+		JOIN students s ON s.id = ar.student_id
+		JOIN users u ON u.id = s.user_id
+		WHERE ar.id = $1 AND ar.status != $2`
+
 	var ref model.AchievementReference
-	if err := r.pgDB.Preload("Student.User").Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", id).Error; err != nil {
+	var studentID uuid.UUID
+	var studentFullName sql.NullString
+	var rejectionNote sql.NullString
+
+	err := r.pgDB.QueryRow(query, id, model.StatusDeleted).Scan(
+		&ref.ID, &ref.StudentID, &ref.MongoAchievementID, &ref.Status, &rejectionNote, &ref.CreatedAt, &ref.UpdatedAt,
+		&studentID, &studentFullName,
+	)
+	if err != nil {
 		return nil, err
+	}
+
+	if rejectionNote.Valid {
+		ref.RejectionNote = rejectionNote.String
+	}
+
+	ref.Student.ID = studentID
+	if studentFullName.Valid {
+		ref.Student.User.FullName = studentFullName.String
 	}
 
 	var mongoDetail model.AchievementMongo
 	objID, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
 
 	coll := r.mongoDB.Collection("achievements")
-	err := coll.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&mongoDetail)
+	err = coll.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&mongoDetail)
 
 	if err != nil {
 		return nil, errors.New("detail data missing in NoSQL")
@@ -138,11 +165,8 @@ func (r *AchievementRepo) FindByAchievementID(id uuid.UUID) (*model.AchievementR
 }
 
 func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int, search, sortBy, order string) ([]model.AchievementResponse, int64, error) {
-	var refs []model.AchievementReference
 	var total int64
-
-	query := r.pgDB.Preload("Student.User").Where("status != ?", model.StatusDeleted)
-
+	var mongoIDs []string
 	if search != "" {
 		coll := r.mongoDB.Collection("achievements")
 		filter := bson.M{"title": bson.M{"$regex": search, "$options": "i"}}
@@ -152,7 +176,6 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 		}
 		defer cursor.Close(context.TODO())
 
-		var mongoIDs []string
 		for cursor.Next(context.TODO()) {
 			var doc struct {
 				ID primitive.ObjectID `bson:"_id"`
@@ -165,67 +188,147 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 		if len(mongoIDs) == 0 {
 			return []model.AchievementResponse{}, 0, nil
 		}
-		query = query.Where("mongo_achievement_id IN ?", mongoIDs)
+	}
+
+	args := []interface{}{}
+	argIndex := 1
+
+	countQuery := `SELECT COUNT(*) FROM achievement_references ar WHERE ar.status != $1`
+	args = append(args, model.StatusDeleted)
+	argIndex++
+
+	if search != "" && len(mongoIDs) > 0 {
+		countQuery += fmt.Sprintf(" AND ar.mongo_achievement_id = ANY($%d)", argIndex)
+		args = append(args, mongoIDs)
+		argIndex++
 	}
 
 	if role == model.RoleMahasiswa {
-		var student model.Student
-		if err := r.pgDB.Where("user_id = ?", userID).First(&student).Error; err != nil {
+		var studentID uuid.UUID
+		err := r.pgDB.QueryRow("SELECT id FROM students WHERE user_id = $1", userID).Scan(&studentID)
+		if err != nil {
 			return nil, 0, err
 		}
-		query = query.Where("student_id = ?", student.ID)
-
+		countQuery += fmt.Sprintf(" AND ar.student_id = $%d", argIndex)
+		args = append(args, studentID)
+		argIndex++
 	} else if role == model.RoleDosenWali {
-		var lecturer model.Lecturer
-		if err := r.pgDB.Where("user_id = ?", userID).First(&lecturer).Error; err != nil {
+		var lecturerID uuid.UUID
+		err := r.pgDB.QueryRow("SELECT id FROM lecturers WHERE user_id = $1", userID).Scan(&lecturerID)
+		if err != nil {
 			return nil, 0, err
 		}
-		query = query.Joins("JOIN students ON students.id = achievement_references.student_id").
-			Where("students.advisor_id = ?", lecturer.ID).
-			Where("achievement_references.status != ?", model.StatusDraft)
-	}
-	if role == model.RoleAdmin {
-		query = query.Where("achievement_references.status != ?", model.StatusDraft)
+		countQuery += fmt.Sprintf(" AND ar.student_id IN (SELECT id FROM students WHERE advisor_id = $%d) AND ar.status != $%d", argIndex, argIndex+1)
+		args = append(args, lecturerID, model.StatusDraft)
+		argIndex += 2
+	} else if role == model.RoleAdmin {
+		countQuery += fmt.Sprintf(" AND ar.status != $%d", argIndex)
+		args = append(args, model.StatusDraft)
+		argIndex++
 	}
 
-	if err := query.Model(&model.AchievementReference{}).Count(&total).Error; err != nil {
+	err := r.pgDB.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
 		return nil, 0, err
+	}
+
+	mainQuery := `
+		SELECT ar.id, ar.student_id, ar.mongo_achievement_id, ar.status, ar.rejection_note, ar.created_at, ar.updated_at,
+		       s.id, u.full_name
+		FROM achievement_references ar
+		JOIN students s ON s.id = ar.student_id
+		JOIN users u ON u.id = s.user_id
+		WHERE ar.status != $1`
+
+	selectArgs := []interface{}{model.StatusDeleted}
+	selectArgIndex := 2
+
+	if search != "" && len(mongoIDs) > 0 {
+		mainQuery += fmt.Sprintf(" AND ar.mongo_achievement_id = ANY($%d)", selectArgIndex)
+		selectArgs = append(selectArgs, mongoIDs)
+		selectArgIndex++
+	}
+
+	if role == model.RoleMahasiswa {
+		var studentID uuid.UUID
+		r.pgDB.QueryRow("SELECT id FROM students WHERE user_id = $1", userID).Scan(&studentID)
+		mainQuery += fmt.Sprintf(" AND ar.student_id = $%d", selectArgIndex)
+		selectArgs = append(selectArgs, studentID)
+		selectArgIndex++
+	} else if role == model.RoleDosenWali {
+		var lecturerID uuid.UUID
+		r.pgDB.QueryRow("SELECT id FROM lecturers WHERE user_id = $1", userID).Scan(&lecturerID)
+		mainQuery += fmt.Sprintf(" AND ar.student_id IN (SELECT id FROM students WHERE advisor_id = $%d) AND ar.status != $%d", selectArgIndex, selectArgIndex+1)
+		selectArgs = append(selectArgs, lecturerID, model.StatusDraft)
+		selectArgIndex += 2
+	} else if role == model.RoleAdmin {
+		mainQuery += fmt.Sprintf(" AND ar.status != $%d", selectArgIndex)
+		selectArgs = append(selectArgs, model.StatusDraft)
+		selectArgIndex++
+	}
+
+	if sortBy == "date" {
+		sortBy = "created_at"
+	}
+	if sortBy == "created_at" || sortBy == "updated_at" || sortBy == "status" {
+		if order != "asc" && order != "desc" {
+			order = "desc"
+		}
+		mainQuery += fmt.Sprintf(" ORDER BY ar.%s %s", sortBy, order)
+	} else {
+		mainQuery += " ORDER BY ar.created_at DESC"
 	}
 
 	offset := (page - 1) * limit
+	mainQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", selectArgIndex, selectArgIndex+1)
+	selectArgs = append(selectArgs, limit, offset)
 
-	if sortBy != "" && order != "" {
-		if sortBy == "date" {
-			sortBy = "created_at"
-		}
-		if sortBy == "created_at" || sortBy == "updated_at" || sortBy == "status" {
-			query = query.Order(fmt.Sprintf("%s %s", sortBy, order))
-		} else {
-			query = query.Order("created_at desc")
-		}
-	} else {
-		query = query.Order("created_at desc")
-	}
-
-	if err := query.Offset(offset).Limit(limit).Find(&refs).Error; err != nil {
+	rows, err := r.pgDB.Query(mainQuery, selectArgs...)
+	if err != nil {
 		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var refs []model.AchievementReference
+	refMap := make(map[string]model.AchievementReference)
+
+	for rows.Next() {
+		var ref model.AchievementReference
+		var studentID uuid.UUID
+		var studentFullName, rejectionNote sql.NullString
+
+		if err := rows.Scan(
+			&ref.ID, &ref.StudentID, &ref.MongoAchievementID, &ref.Status, &rejectionNote, &ref.CreatedAt, &ref.UpdatedAt,
+			&studentID, &studentFullName,
+		); err != nil {
+			return nil, 0, err
+		}
+
+		if rejectionNote.Valid {
+			ref.RejectionNote = rejectionNote.String
+		}
+
+		ref.Student.ID = studentID
+		if studentFullName.Valid {
+			ref.Student.User.FullName = studentFullName.String
+		}
+
+		refs = append(refs, ref)
+		refMap[ref.MongoAchievementID] = ref
 	}
 
 	if len(refs) == 0 {
 		return []model.AchievementResponse{}, total, nil
 	}
 
-	var mongoIDs []primitive.ObjectID
-	refMap := make(map[string]model.AchievementReference)
-
+	var mongoOIDs []primitive.ObjectID
 	for _, ref := range refs {
 		oid, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
-		mongoIDs = append(mongoIDs, oid)
-		refMap[ref.MongoAchievementID] = ref
+		mongoOIDs = append(mongoOIDs, oid)
 	}
 
 	coll := r.mongoDB.Collection("achievements")
-	cursor, err := coll.Find(context.TODO(), bson.M{"_id": bson.M{"$in": mongoIDs}})
+	cursor, err := coll.Find(context.TODO(), bson.M{"_id": bson.M{"$in": mongoOIDs}})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -246,8 +349,10 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 }
 
 func (r *AchievementRepo) Update(id uuid.UUID, req model.UpdateAchievementRequest) (*model.AchievementResponse, error) {
-	var ref model.AchievementReference
-	if err := r.pgDB.Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", id).Error; err != nil {
+	query := `SELECT mongo_achievement_id FROM achievement_references WHERE id = $1 AND status != $2`
+	var mongoID string
+	err := r.pgDB.QueryRow(query, id, model.StatusDeleted).Scan(&mongoID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -302,10 +407,15 @@ func (r *AchievementRepo) Update(id uuid.UUID, req model.UpdateAchievementReques
 		}
 	}
 
-	objID, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
+	objID, _ := primitive.ObjectIDFromHex(mongoID)
 	coll := r.mongoDB.Collection("achievements")
 
-	_, err := coll.UpdateOne(context.TODO(), bson.M{"_id": objID}, bson.M{"$set": updateFields})
+	_, err = coll.UpdateOne(context.TODO(), bson.M{"_id": objID}, bson.M{"$set": updateFields})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = r.pgDB.Exec("UPDATE achievement_references SET updated_at = $1 WHERE id = $2", time.Now(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -314,31 +424,35 @@ func (r *AchievementRepo) Update(id uuid.UUID, req model.UpdateAchievementReques
 }
 
 func (r *AchievementRepo) UpdateStatus(id uuid.UUID, status string, verifierID *uuid.UUID, note string, points int) error {
-	updates := map[string]interface{}{
-		"status":     status,
-		"updated_at": time.Now(),
-	}
+	now := time.Now()
+
+	var query string
+	var args []interface{}
 
 	if status == "submitted" {
-		updates["submitted_at"] = time.Now()
-	}
-	if status == "verified" || status == "rejected" {
-		updates["verified_at"] = time.Now()
-		updates["verified_by"] = verifierID
-		updates["rejection_note"] = note
+		query = `UPDATE achievement_references SET status = $1, submitted_at = $2, updated_at = $3 WHERE id = $4 AND status != $5`
+		args = []interface{}{status, now, now, id, model.StatusDeleted}
+	} else if status == "verified" || status == "rejected" {
+		query = `UPDATE achievement_references SET status = $1, verified_at = $2, verified_by = $3, rejection_note = $4, updated_at = $5 WHERE id = $6 AND status != $7`
+		args = []interface{}{status, now, verifierID, note, now, id, model.StatusDeleted}
+	} else {
+		query = `UPDATE achievement_references SET status = $1, updated_at = $2 WHERE id = $3 AND status != $4`
+		args = []interface{}{status, now, id, model.StatusDeleted}
 	}
 
-	if err := r.pgDB.Model(&model.AchievementReference{}).Where("id = ? AND status != ?", id, model.StatusDeleted).Updates(updates).Error; err != nil {
+	_, err := r.pgDB.Exec(query, args...)
+	if err != nil {
 		return err
 	}
 
 	if status == "verified" {
-		var ref model.AchievementReference
-		if err := r.pgDB.Select("mongo_achievement_id").First(&ref, "id = ?", id).Error; err != nil {
+		var mongoID string
+		err := r.pgDB.QueryRow("SELECT mongo_achievement_id FROM achievement_references WHERE id = $1", id).Scan(&mongoID)
+		if err != nil {
 			return err
 		}
 
-		objID, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
+		objID, _ := primitive.ObjectIDFromHex(mongoID)
 		coll := r.mongoDB.Collection("achievements")
 
 		update := bson.M{
@@ -354,22 +468,25 @@ func (r *AchievementRepo) UpdateStatus(id uuid.UUID, status string, verifierID *
 }
 
 func (r *AchievementRepo) Delete(id uuid.UUID) error {
-	return r.pgDB.Model(&model.AchievementReference{}).Where("id = ?", id).Update("status", model.StatusDeleted).Error
+	query := `UPDATE achievement_references SET status = $1 WHERE id = $2`
+	_, err := r.pgDB.Exec(query, model.StatusDeleted, id)
+	return err
 }
 
 func (r *AchievementRepo) AddAttachment(id uuid.UUID, attachment model.Attachment) error {
-	var ref model.AchievementReference
-	if err := r.pgDB.Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", id).Error; err != nil {
+	var mongoID string
+	err := r.pgDB.QueryRow("SELECT mongo_achievement_id FROM achievement_references WHERE id = $1 AND status != $2", id, model.StatusDeleted).Scan(&mongoID)
+	if err != nil {
 		return err
 	}
 
-	objID, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
+	objID, _ := primitive.ObjectIDFromHex(mongoID)
 	coll := r.mongoDB.Collection("achievements")
 
 	update := bson.M{
 		"$push": bson.M{"attachments": attachment},
 	}
-	_, err := coll.UpdateOne(context.TODO(), bson.M{"_id": objID}, update)
+	_, err = coll.UpdateOne(context.TODO(), bson.M{"_id": objID}, update)
 	return err
 }
 
@@ -405,37 +522,40 @@ func (r *AchievementRepo) mapToResponse(ref model.AchievementReference, mongoDoc
 }
 
 func (r *AchievementRepo) GetOwnerID(achievementID uuid.UUID) (uuid.UUID, error) {
-	var ref model.AchievementReference
-	err := r.pgDB.Preload("Student").Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", achievementID).Error
+	query := `
+		SELECT s.user_id
+		FROM achievement_references ar
+		JOIN students s ON s.id = ar.student_id
+		WHERE ar.id = $1 AND ar.status != $2`
+
+	var ownerID uuid.UUID
+	err := r.pgDB.QueryRow(query, achievementID, model.StatusDeleted).Scan(&ownerID)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	return ref.Student.UserID, nil
+	return ownerID, nil
 }
 
 func (r *AchievementRepo) IsAdvisor(lecturerUserID uuid.UUID, achievementID uuid.UUID) (bool, error) {
-	var ref model.AchievementReference
-	err := r.pgDB.Joins("JOIN students ON students.id = achievement_references.student_id").
-		Joins("JOIN lecturers ON lecturers.id = students.advisor_id").
-		Where("achievement_references.id = ? AND lecturers.user_id = ? AND achievement_references.status != ?", achievementID, lecturerUserID, model.StatusDeleted).
-		First(&ref).Error
+	query := `
+		SELECT COUNT(*)
+		FROM achievement_references ar
+		JOIN students s ON s.id = ar.student_id
+		JOIN lecturers l ON l.id = s.advisor_id
+		WHERE ar.id = $1 AND l.user_id = $2 AND ar.status != $3`
 
+	var count int64
+	err := r.pgDB.QueryRow(query, achievementID, lecturerUserID, model.StatusDeleted).Scan(&count)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
 		return false, err
 	}
-
-	return true, nil
+	return count > 0, nil
 }
 
 func (r *AchievementRepo) GetStatus(id uuid.UUID) (string, error) {
 	var status string
-	err := r.pgDB.Model(&model.AchievementReference{}).
-		Where("id = ? AND status != ?", id, model.StatusDeleted).
-		Select("status").
-		Scan(&status).Error
+	query := `SELECT status FROM achievement_references WHERE id = $1 AND status != $2`
+	err := r.pgDB.QueryRow(query, id, model.StatusDeleted).Scan(&status)
 	if err != nil {
 		return "", err
 	}
@@ -443,33 +563,61 @@ func (r *AchievementRepo) GetStatus(id uuid.UUID) (string, error) {
 }
 
 func (r *AchievementRepo) GetHistory(id uuid.UUID) (*model.AchievementHistoryResponse, error) {
-	var ref model.AchievementReference
-	if err := r.pgDB.Preload("Verifier").Where("status != ?", model.StatusDeleted).First(&ref, "id = ?", id).Error; err != nil {
+	query := `
+		SELECT ar.id, ar.mongo_achievement_id, ar.status, ar.created_at, ar.submitted_at, ar.verified_at, ar.rejection_note,
+		       u.full_name
+		FROM achievement_references ar
+		LEFT JOIN users u ON u.id = ar.verified_by
+		WHERE ar.id = $1 AND ar.status != $2`
+
+	var mongoID string
+	var status string
+	var createdAt time.Time
+	var submittedAt, verifiedAt sql.NullTime
+	var rejectionNote, verifierName sql.NullString
+	var pgID uuid.UUID
+
+	err := r.pgDB.QueryRow(query, id, model.StatusDeleted).Scan(
+		&pgID, &mongoID, &status, &createdAt, &submittedAt, &verifiedAt, &rejectionNote, &verifierName,
+	)
+	if err != nil {
 		return nil, err
 	}
 
 	var mongoDetail model.AchievementMongo
-	objID, _ := primitive.ObjectIDFromHex(ref.MongoAchievementID)
+	objID, _ := primitive.ObjectIDFromHex(mongoID)
 	coll := r.mongoDB.Collection("achievements")
-	err := coll.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&mongoDetail)
+	err = coll.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&mongoDetail)
 	if err != nil {
 		return nil, errors.New("detail data missing in NoSQL")
 	}
 
-	verifierName := ""
-	if ref.Verifier != nil {
-		verifierName = ref.Verifier.FullName
+	verName := ""
+	if verifierName.Valid {
+		verName = verifierName.String
 	}
 
-	return &model.AchievementHistoryResponse{
-		ID:            ref.ID,
+	rejNote := ""
+	if rejectionNote.Valid {
+		rejNote = rejectionNote.String
+	}
+
+	resp := &model.AchievementHistoryResponse{
+		ID:            pgID,
 		Title:         mongoDetail.Title,
-		Status:        string(ref.Status),
-		CreatedAt:     ref.CreatedAt,
-		SubmittedAt:   ref.SubmittedAt,
-		VerifiedAt:    ref.VerifiedAt,
-		VerifierName:  verifierName,
-		RejectionNote: ref.RejectionNote,
+		Status:        status,
+		CreatedAt:     createdAt,
+		VerifierName:  verName,
+		RejectionNote: rejNote,
 		Points:        mongoDetail.Points,
-	}, nil
+	}
+
+	if submittedAt.Valid {
+		resp.SubmittedAt = &submittedAt.Time
+	}
+	if verifiedAt.Valid {
+		resp.VerifiedAt = &verifiedAt.Time
+	}
+
+	return resp, nil
 }

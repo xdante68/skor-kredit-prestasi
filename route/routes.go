@@ -1,27 +1,29 @@
 package route
 
 import (
+	"database/sql"
+
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gorm"
 
-	"fiber/skp/app/model"
 	"fiber/skp/app/repo"
 	"fiber/skp/app/service"
 	"fiber/skp/middleware"
 )
 
-func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
+func SetupRoutes(app *fiber.App, pgDB *sql.DB, mongoDB *mongo.Database) {
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
 
-	userRepo := repo.NewUserRepo()
-	studentRepo := repo.NewStudentRepo()
+	userRepo := repo.NewUserRepo(pgDB)
+	studentRepo := repo.NewStudentRepo(pgDB)
+	lecturerRepo := repo.NewLecturerRepo(pgDB)
 	achievementRepo := repo.NewAchievementRepo(pgDB, mongoDB)
 
 	authService := service.NewAuthService(userRepo)
-	userService := service.NewUserService(userRepo)
-	achievementSvc := service.NewAchievementService(achievementRepo, studentRepo)
+	userService := service.NewUserService(userRepo, studentRepo, lecturerRepo)
+	academicService := service.NewAcademicService(studentRepo, lecturerRepo, achievementRepo)
+	achievementSvc := service.NewAchievementService(achievementRepo, studentRepo, lecturerRepo)
 
 	auth := v1.Group("/auth")
 
@@ -33,7 +35,8 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 
 	protected.Get("/auth/profile", authService.Profile)
 
-	users := protected.Group("/users", middleware.RolesRequired(model.RoleAdmin))
+	// User endpoint (Admin only)
+	users := protected.Group("/users", middleware.PermissionsRequired("user:manage"))
 
 	users.Get("/", userService.GetAllUsers)
 	users.Get("/:id", userService.GetUser)
@@ -42,16 +45,29 @@ func SetupRoutes(app *fiber.App, pgDB *gorm.DB, mongoDB *mongo.Database) {
 	users.Delete("/:id", userService.DeleteUser)
 	users.Put("/:id/role", userService.ChangeRole)
 
+	// Students endpoint (Admin only)
+	students := protected.Group("/students", middleware.PermissionsRequired("user:manage"))
+	students.Get("/", academicService.GetAllStudents)
+	students.Get("/:id", academicService.GetStudentDetail)
+	students.Get("/:id/achievements", academicService.GetStudentAchievements)
+	students.Put("/:id/advisor", academicService.AssignAdvisor)
+
+	// Lecturers endpoint (Admin only)
+	lecturers := protected.Group("/lecturers", middleware.PermissionsRequired("user:manage"))
+	lecturers.Get("/", academicService.GetAllLecturers)
+	lecturers.Get("/:id/advisees", academicService.GetAdvisees)
+
+	// Achievements endpoint
 	achievements := protected.Group("/achievements")
 
 	achievements.Get("/", achievementSvc.List)
 	achievements.Get("/:id", achievementSvc.Get)
-	achievements.Post("/", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Create)
-	achievements.Put("/:id", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Update)
-	achievements.Delete("/:id", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Delete)
-	achievements.Post("/:id/submit", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.Submit)
-	achievements.Post("/:id/verify", middleware.RolesRequired(model.RoleDosenWali), achievementSvc.Verify)
-	achievements.Post("/:id/reject", middleware.RolesRequired(model.RoleDosenWali), achievementSvc.Reject)
+	achievements.Post("/", middleware.PermissionsRequired("achievement:create"), achievementSvc.Create)
+	achievements.Put("/:id", middleware.PermissionsRequired("achievement:update"), achievementSvc.Update)
+	achievements.Delete("/:id", middleware.PermissionsRequired("achievement:delete"), achievementSvc.Delete)
+	achievements.Post("/:id/submit", middleware.PermissionsRequired("achievement:create"), achievementSvc.Submit)
+	achievements.Post("/:id/verify", middleware.PermissionsRequired("achievement:verify"), achievementSvc.Verify)
+	achievements.Post("/:id/reject", middleware.PermissionsRequired("achievement:verify"), achievementSvc.Reject)
 	achievements.Get("/:id/history", achievementSvc.GetHistory)
-	achievements.Post("/:id/attachments", middleware.RolesRequired(model.RoleMahasiswa), achievementSvc.UploadAttachment)
+	achievements.Post("/:id/attachments", middleware.PermissionsRequired("achievement:create"), achievementSvc.UploadAttachment)
 }

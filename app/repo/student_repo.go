@@ -29,6 +29,13 @@ func NewStudentRepo(db *sql.DB) *StudentRepo {
 	}
 }
 
+var studentSortWhitelist = map[string]string{
+	"created_at":    "s.created_at",
+	"full_name":     "u.full_name",
+	"student_id":    "s.student_id",
+	"program_study": "s.program_study",
+}
+
 func (r *StudentRepo) Create(student *model.Student) error {
 	query := `
 		INSERT INTO students (user_id, student_id, program_study, academic_year, advisor_id, created_at)
@@ -45,13 +52,6 @@ func (r *StudentRepo) Create(student *model.Student) error {
 		student.AdvisorID,
 		now,
 	).Scan(&student.ID)
-}
-
-var studentSortWhitelist = map[string]string{
-	"created_at":    "s.created_at",
-	"full_name":     "u.full_name",
-	"student_id":    "s.student_id",
-	"program_study": "s.program_study",
 }
 
 func (r *StudentRepo) FindAll(page, limit int, search, sortBy, order string) ([]model.Student, int64, error) {

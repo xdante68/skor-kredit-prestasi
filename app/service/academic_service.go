@@ -87,7 +87,7 @@ func (s *AcademicService) GetStudentDetail(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid student_id",
+			Message: "student_id tidak valid",
 			Error:   err.Error(),
 		})
 	}
@@ -96,7 +96,7 @@ func (s *AcademicService) GetStudentDetail(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Student not found",
+			Message: "Mahasiswa tidak ditemukan",
 			Error:   err.Error(),
 		})
 	}
@@ -120,7 +120,7 @@ func (s *AcademicService) AssignAdvisor(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid student_id",
+			Message: "student_id tidak valid",
 		})
 	}
 
@@ -138,7 +138,7 @@ func (s *AcademicService) AssignAdvisor(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid lecturer_id",
+			Message: "lecturer_id tidak valid",
 		})
 	}
 
@@ -146,20 +146,20 @@ func (s *AcademicService) AssignAdvisor(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Lecturer not found",
+			Message: "Lecturer tidak ditemukan",
 		})
 	}
 
 	if err := s.studentRepo.UpdateAdvisor(studentID, advisorUUID); err != nil {
 		return c.Status(500).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to assign advisor",
+			Message: "Gagal mengassign advisor",
 		})
 	}
 
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Advisor assigned successfully",
+		Message: "Advisor berhasil diassign",
 	})
 }
 
@@ -169,7 +169,7 @@ func (s *AcademicService) GetStudentAchievements(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid student_id",
+			Message: "student_id tidak valid",
 		})
 	}
 
@@ -188,7 +188,7 @@ func (s *AcademicService) GetStudentAchievements(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Student not found",
+			Message: "Mahasiswa tidak ditemukan",
 		})
 	}
 
@@ -196,7 +196,7 @@ func (s *AcademicService) GetStudentAchievements(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed fetching achievements",
+			Message: "Gagal mengambil data achievement",
 		})
 	}
 
@@ -275,7 +275,7 @@ func (s *AcademicService) GetAdvisees(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid lecturer_id",
+			Message: "lecturer_id tidak valid",
 		})
 	}
 
@@ -283,7 +283,7 @@ func (s *AcademicService) GetAdvisees(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Lecturer not found",
+			Message: "Lecturer tidak ditemukan",
 		})
 	}
 
@@ -291,7 +291,7 @@ func (s *AcademicService) GetAdvisees(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed fetch advisees",
+			Message: "Gagal mengambil data mahasiswa",
 		})
 	}
 

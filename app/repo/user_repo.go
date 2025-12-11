@@ -12,7 +12,9 @@ import (
 type UserRepository interface {
 	Create(user *model.User) error
 	FindByUsername(username string) (*model.User, error)
+	getPermissionsForRole(roleID uuid.UUID) ([]model.Permission, error)
 	FindByUserID(id uuid.UUID) (*model.User, error)
+	FindByUserIDSimple(id uuid.UUID) (*model.User, error) 
 	FindAll(page, limit int, search, sortBy, order string) ([]model.User, int64, error)
 	Update(user *model.User) error
 	Delete(id uuid.UUID) error
@@ -164,6 +166,34 @@ func (r *UserRepo) FindByUserID(id uuid.UUID) (*model.User, error) {
 		if err == nil {
 			user.Role.Permissions = permissions
 		}
+	}
+
+	return &user, nil
+}
+
+func (r *UserRepo) FindByUserIDSimple(id uuid.UUID) (*model.User, error) {
+	query := `
+		SELECT u.id, u.username, u.email, u.full_name,
+		       r.id, r.name, r.description
+		FROM users u
+		LEFT JOIN roles r ON u.role_id = r.id
+		WHERE u.id = $1 AND u.is_active = true`
+
+	var user model.User
+	var roleID, roleName, roleDesc sql.NullString
+
+	err := r.DB.QueryRow(query, id).Scan(
+		&user.ID, &user.Username, &user.Email, &user.FullName,
+		&roleID, &roleName, &roleDesc,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if roleID.Valid {
+		user.Role.ID, _ = uuid.Parse(roleID.String)
+		user.Role.Name = roleName.String
+		user.Role.Description = roleDesc.String
 	}
 
 	return &user, nil

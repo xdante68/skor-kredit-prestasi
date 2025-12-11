@@ -3,10 +3,12 @@ package service
 import (
 	"fiber/skp/app/model"
 	"fiber/skp/app/repo"
+	"fiber/skp/helper"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -38,7 +40,7 @@ func (s *AchievementService) List(c *fiber.Ctx) error {
 	sortBy := c.Query("sortBy", "created_at")
 	order := c.Query("order", "desc")
 	validSorts := map[string]bool{"created_at": true, "updated_at": true, "status": true, "date": true}
-	
+
 	if !validSorts[sortBy] {
 		sortBy = "created_at"
 	}
@@ -76,7 +78,7 @@ func (s *AchievementService) Get(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid achievement_id",
+			Message: "achievement_id tidak valid",
 		})
 	}
 
@@ -84,7 +86,7 @@ func (s *AchievementService) Get(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Achievement not found",
+			Message: "Achievement tidak ditemukan",
 		})
 	}
 
@@ -96,7 +98,7 @@ func (s *AchievementService) Get(c *fiber.Ctx) error {
 		if err != nil || ownerID != userID {
 			return c.Status(403).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "You are not authorised to view other people's achievements.",
+				Message: "Anda tidak berhak melihat achievement orang lain.",
 			})
 		}
 	} else if role == model.RoleDosenWali {
@@ -110,7 +112,7 @@ func (s *AchievementService) Get(c *fiber.Ctx) error {
 		if !isAdvisor {
 			return c.Status(403).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "You are not the advisor for this student",
+				Message: "Anda tidak berhak melihat achievement mahasiswa yang bukan bimbingan Anda.",
 			})
 		}
 	}
@@ -128,7 +130,15 @@ func (s *AchievementService) Create(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid input",
+			Message: "Input tidak valid",
+		})
+	}
+
+	if err := helper.ValidateStruct(req); err != nil {
+		return c.Status(400).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Validasi gagal",
+			Error:   helper.FormatValidationErrors(err),
 		})
 	}
 
@@ -138,7 +148,7 @@ func (s *AchievementService) Create(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Student profile not found",
+			Message: "Profil mahasiswa tidak ditemukan",
 		})
 	}
 
@@ -162,7 +172,7 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid achievement_id",
+			Message: "achievement_id tidak valid",
 		})
 	}
 	userID := c.Locals("user_id").(uuid.UUID)
@@ -177,7 +187,7 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	if ownerID != userID {
 		return c.Status(403).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "You are not authorised to update this achievement",
+			Message: "Anda tidak berhak mengubah achievement yang bukan milik Anda",
 		})
 	}
 
@@ -191,7 +201,7 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	if currentStatus != "draft" && currentStatus != "rejected" {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Can only update achievements with status 'draft' or 'rejected'",
+			Message: "Hanya achievement dengan status 'draft' atau 'rejected' yang dapat diubah",
 		})
 	}
 
@@ -199,11 +209,10 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid input",
+			Message: "Input tidak valid",
 		})
 	}
 
-	// If rejected, reset to draft when updating
 	if currentStatus == "rejected" {
 		if err := s.repo.UpdateStatus(id, "draft", nil, "", 0); err != nil {
 			return c.Status(500).JSON(model.ErrorResponse{
@@ -222,7 +231,7 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	}
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Updated Successfully",
+		Message: "achievement berhasil diubah",
 	})
 }
 
@@ -232,7 +241,7 @@ func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid achievement_id",
+			Message: "achievement_id tidak valid",
 		})
 	}
 	userID := c.Locals("user_id").(uuid.UUID)
@@ -247,11 +256,10 @@ func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	if ownerID != userID {
 		return c.Status(403).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "You are not authorised to delete this achievement",
+			Message: "Anda tidak berhak menghapus achievement yang bukan milik Anda",
 		})
 	}
 
-	// Check status - can only delete draft
 	currentStatus, err := s.repo.GetStatus(id)
 	if err != nil {
 		return c.Status(500).JSON(model.ErrorResponse{
@@ -261,7 +269,7 @@ func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	if currentStatus != "draft" {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Can only delete achievements with status 'draft'",
+			Message: "Hanya achievement dengan status 'draft' yang dapat dihapus",
 		})
 	}
 
@@ -273,7 +281,7 @@ func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	}
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Deleted Successfully",
+		Message: "achievement berhasil dihapus",
 	})
 }
 
@@ -282,7 +290,7 @@ func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
-			Success: false, Message: "Invalid achievement_id",
+			Success: false, Message: "achievement_id tidak valid",
 		})
 	}
 	userID := c.Locals("user_id").(uuid.UUID)
@@ -297,7 +305,7 @@ func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	if ownerID != userID {
 		return c.Status(403).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "You are not authorised to submit this achievement",
+			Message: "Anda tidak berhak mengajukan achievement yang bukan milik Anda",
 		})
 	}
 
@@ -310,7 +318,7 @@ func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	if currentStatus != "draft" {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Can only submit achievements with status 'draft'",
+			Message: "Hanya achievement dengan status 'draft' yang dapat disubmit",
 		})
 	}
 
@@ -322,7 +330,7 @@ func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	}
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Submitted Successfully",
+		Message: "Achievement berhasil disubmit",
 	})
 }
 
@@ -333,7 +341,7 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid achievement_id",
+			Message: "achievement_id tidak valid",
 		})
 	}
 	userID := c.Locals("user_id").(uuid.UUID)
@@ -349,7 +357,7 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	if !isAdvisor {
 		return c.Status(403).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "You are not the advisor for this student",
+			Message: "Anda bukan dosen wali dari mahasiswa ini",
 		})
 	}
 
@@ -362,7 +370,7 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	if currentStatus != "submitted" {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Achievement must be submitted before verification",
+			Message: "Achievement harus disubmit sebelum diverifikasi",
 		})
 	}
 
@@ -370,14 +378,14 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid input",
+			Message: "Input tidak valid",
 		})
 	}
 
 	if req.Points <= 0 {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Points must be greater than 0",
+			Message: "Points harus lebih dari 0",
 		})
 	}
 
@@ -389,7 +397,7 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	}
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Verified Successfully",
+		Message: "Achievement berhasil diverifikasi",
 	})
 }
 
@@ -400,7 +408,14 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid input",
+			Message: "Input tidak valid",
+		})
+	}
+
+	if strings.TrimSpace(req.RejectionNote) == "" {
+		return c.Status(400).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Catatan penolakan (rejection_note) wajib diisi",
 		})
 	}
 
@@ -408,7 +423,7 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid achievement_id",
+			Message: "achievement_id tidak valid",
 		})
 	}
 	userID := c.Locals("user_id").(uuid.UUID)
@@ -423,7 +438,7 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	if !isAdvisor {
 		return c.Status(403).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "You are not the advisor for this student",
+			Message: "Anda bukan dosen wali dari mahasiswa ini",
 		})
 	}
 
@@ -437,7 +452,7 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	if currentStatus != "submitted" {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Achievement must be submitted before rejection",
+			Message: "Achievement harus disubmit sebelum ditolak",
 		})
 	}
 
@@ -449,7 +464,7 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	}
 	return c.JSON(model.SuccessMessageResponse{
 		Success: true,
-		Message: "Rejected Successfully",
+		Message: "Achievement berhasil ditolak",
 	})
 }
 
@@ -459,7 +474,7 @@ func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid achievement_id",
+			Message: "achievement_id tidak valid",
 		})
 	}
 
@@ -471,7 +486,7 @@ func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 		if err != nil || ownerID != userID {
 			return c.Status(403).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "You are not authorised to view this history.",
+				Message: "Anda tidak berhak melihat history achievement ini",
 			})
 		}
 	} else if role == model.RoleDosenWali {
@@ -479,7 +494,7 @@ func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 		if err != nil || !isAdvisor {
 			return c.Status(403).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "You are not the advisor for this student",
+				Message: "Anda bukan dosen wali dari mahasiswa ini",
 			})
 		}
 	}
@@ -488,7 +503,7 @@ func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Achievement not found",
+			Message: "achievement tidak ditemukan",
 		})
 	}
 
@@ -505,7 +520,7 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Invalid achievement_id",
+			Message: "achievement_id tidak valid",
 		})
 	}
 	userID := c.Locals("user_id").(uuid.UUID)
@@ -520,7 +535,7 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	if ownerID != userID {
 		return c.Status(403).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "You are not authorised to upload attachments for this achievement",
+			Message: "Anda tidak berhak mengunggah attachment untuk achievement ini",
 		})
 	}
 
@@ -534,7 +549,7 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	if currentStatus != "draft" {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Can only upload attachments for achievements with status 'draft'",
+			Message: "Hanya achievement dengan status 'draft' yang dapat mengunggah attachment",
 		})
 	}
 
@@ -542,7 +557,23 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(400).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "File required",
+			Message: "File wajib diisi",
+		})
+	}
+
+	const maxFileSize = 5 * 1024 * 1024
+	if file.Size > maxFileSize {
+		return c.Status(400).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Ukuran file maksimal 5MB",
+		})
+	}
+
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext != ".pdf" {
+		return c.Status(400).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Hanya file PDF yang diizinkan",
 		})
 	}
 
@@ -553,13 +584,13 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
 		return c.Status(500).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed to create upload directory",
+			Message: "Gagal membuat direktori uploads",
 		})
 	}
 	if err := c.SaveFile(file, path); err != nil {
 		return c.Status(500).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed saving file",
+			Message: "Gagal menyimpan file",
 		})
 	}
 
@@ -573,13 +604,13 @@ func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 	if err := s.repo.AddAttachment(id, attachment); err != nil {
 		return c.Status(500).JSON(model.ErrorResponse{
 			Success: false,
-			Message: "Failed updating db",
+			Message: "Gagal memperbarui database",
 		})
 	}
 
 	return c.JSON(model.SuccessResponse[*model.Attachment]{
 		Success: true,
-		Message: "Attachment uploaded successfully",
+		Message: "Attachment berhasil diunggah",
 		Data:    &attachment,
 	})
 }

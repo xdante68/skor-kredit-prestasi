@@ -88,7 +88,7 @@ func (s *UserService) GetUser(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := s.userRepo.FindByUserID(userUUID)
+	user, err := s.userRepo.FindByUserIDSimple(userUUID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
 			Success: false,
@@ -132,7 +132,7 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 		if req.Student == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Data mahasiswa diperlukan untuk role mahasiswa",
+				Message: "Data khusus mahasiswa diperlukan untuk role mahasiswa",
 			})
 		}
 		if err := helper.ValidateStruct(*req.Student); err != nil {
@@ -146,7 +146,7 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 		if req.Lecturer == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Data dosen wali diperlukan untuk role dosen_wali",
+				Message: "Data khusus dosen wali diperlukan untuk role dosen_wali",
 			})
 		}
 		if err := helper.ValidateStruct(*req.Lecturer); err != nil {
@@ -213,7 +213,7 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 	if roleData.Name == model.RoleMahasiswa {
 		student := model.Student{
 			UserID:       newUser.ID,
-			StudentID:    req.Username, 
+			StudentID:    req.Username,
 			ProgramStudy: req.Student.ProgramStudy,
 			AcademicYear: req.Student.AcademicYear,
 		}
@@ -382,7 +382,7 @@ func (s *UserService) ChangeRole(c *fiber.Ctx) error {
 		if req.Student == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Data mahasiswa diperlukan untuk role mahasiswa",
+				Message: "Data khusus mahasiswa diperlukan untuk role mahasiswa",
 			})
 		}
 		if err := helper.ValidateStruct(*req.Student); err != nil {
@@ -396,7 +396,7 @@ func (s *UserService) ChangeRole(c *fiber.Ctx) error {
 		if req.Lecturer == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 				Success: false,
-				Message: "Data dosen wali diperlukan untuk role dosen_wali",
+				Message: "Data khusus dosen wali diperlukan untuk role dosen_wali",
 			})
 		}
 		if err := helper.ValidateStruct(*req.Lecturer); err != nil {

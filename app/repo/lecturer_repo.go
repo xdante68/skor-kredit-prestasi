@@ -28,6 +28,13 @@ func NewLecturerRepo(db *sql.DB) *LecturerRepo {
 	}
 }
 
+var lecturerSortWhitelist = map[string]string{
+	"created_at":  "l.created_at",
+	"full_name":   "u.full_name",
+	"lecturer_id": "l.lecturer_id",
+	"department":  "l.department",
+}
+
 func (r *LecturerRepo) Create(lecturer *model.Lecturer) error {
 	query := `
 		INSERT INTO lecturers (user_id, lecturer_id, department, created_at)
@@ -42,13 +49,6 @@ func (r *LecturerRepo) Create(lecturer *model.Lecturer) error {
 		lecturer.Department,
 		now,
 	).Scan(&lecturer.ID)
-}
-
-var lecturerSortWhitelist = map[string]string{
-	"created_at":  "l.created_at",
-	"full_name":   "u.full_name",
-	"lecturer_id": "l.lecturer_id",
-	"department":  "l.department",
 }
 
 func (r *LecturerRepo) FindAll(page, limit int, search, sortBy, order string) ([]model.Lecturer, int64, error) {

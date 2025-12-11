@@ -11,11 +11,11 @@ import (
 func main() {
 	db.ConnectDB()
 	config.Logger()
-	config.LoadEnv()
-	
+
 	app := config.NewApp()
-	
+
 	route.SetupRoutes(app, db.GetDB(), db.GetMongo())
 
-	log.Fatal(app.Listen(":3000"))
+	port := ":" + config.GetAppPort()
+	log.Fatal(app.Listen(port))
 }
