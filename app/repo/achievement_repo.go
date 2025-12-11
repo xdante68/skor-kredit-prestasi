@@ -34,15 +34,15 @@ type AchievementRepo struct {
 	mongoDB *mongo.Database
 }
 
+func NewAchievementRepo(pgDB *sql.DB, mongoDB *mongo.Database) *AchievementRepo {
+	return &AchievementRepo{pgDB: pgDB, mongoDB: mongoDB}
+}
+
 var achievementSortWhitelist = map[string]string{
 	"created_at": "ar.created_at",
 	"updated_at": "ar.updated_at",
 	"status":     "ar.status",
 	"date":       "ar.created_at",
-}
-
-func NewAchievementRepo(pgDB *sql.DB, mongoDB *mongo.Database) *AchievementRepo {
-	return &AchievementRepo{pgDB: pgDB, mongoDB: mongoDB}
 }
 
 func (r *AchievementRepo) Create(studentID uuid.UUID, req model.CreateAchievementRequest) (*model.AchievementResponse, error) {
@@ -211,22 +211,12 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 	}
 
 	if role == model.RoleMahasiswa {
-		var studentID uuid.UUID
-		err := r.pgDB.QueryRow("SELECT id FROM students WHERE user_id = $1", userID).Scan(&studentID)
-		if err != nil {
-			return nil, 0, err
-		}
-		countQuery += fmt.Sprintf(" AND ar.student_id = $%d", argIndex)
-		args = append(args, studentID)
+		countQuery += fmt.Sprintf(" AND ar.student_id = (SELECT id FROM students WHERE user_id = $%d)", argIndex)
+		args = append(args, userID)
 		argIndex++
 	} else if role == model.RoleDosenWali {
-		var lecturerID uuid.UUID
-		err := r.pgDB.QueryRow("SELECT id FROM lecturers WHERE user_id = $1", userID).Scan(&lecturerID)
-		if err != nil {
-			return nil, 0, err
-		}
-		countQuery += fmt.Sprintf(" AND ar.student_id IN (SELECT id FROM students WHERE advisor_id = $%d) AND ar.status != $%d", argIndex, argIndex+1)
-		args = append(args, lecturerID, model.StatusDraft)
+		countQuery += fmt.Sprintf(" AND ar.student_id IN (SELECT s.id FROM students s JOIN lecturers l ON s.advisor_id = l.id WHERE l.user_id = $%d) AND ar.status != $%d", argIndex, argIndex+1)
+		args = append(args, userID, model.StatusDraft)
 		argIndex += 2
 	} else if role == model.RoleAdmin {
 		countQuery += fmt.Sprintf(" AND ar.status != $%d", argIndex)
@@ -257,16 +247,12 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 	}
 
 	if role == model.RoleMahasiswa {
-		var studentID uuid.UUID
-		r.pgDB.QueryRow("SELECT id FROM students WHERE user_id = $1", userID).Scan(&studentID)
-		mainQuery += fmt.Sprintf(" AND ar.student_id = $%d", selectArgIndex)
-		selectArgs = append(selectArgs, studentID)
+		mainQuery += fmt.Sprintf(" AND ar.student_id = (SELECT id FROM students WHERE user_id = $%d)", selectArgIndex)
+		selectArgs = append(selectArgs, userID)
 		selectArgIndex++
 	} else if role == model.RoleDosenWali {
-		var lecturerID uuid.UUID
-		r.pgDB.QueryRow("SELECT id FROM lecturers WHERE user_id = $1", userID).Scan(&lecturerID)
-		mainQuery += fmt.Sprintf(" AND ar.student_id IN (SELECT id FROM students WHERE advisor_id = $%d) AND ar.status != $%d", selectArgIndex, selectArgIndex+1)
-		selectArgs = append(selectArgs, lecturerID, model.StatusDraft)
+		mainQuery += fmt.Sprintf(" AND ar.student_id IN (SELECT s.id FROM students s JOIN lecturers l ON s.advisor_id = l.id WHERE l.user_id = $%d) AND ar.status != $%d", selectArgIndex, selectArgIndex+1)
+		selectArgs = append(selectArgs, userID, model.StatusDraft)
 		selectArgIndex += 2
 	} else if role == model.RoleAdmin {
 		mainQuery += fmt.Sprintf(" AND ar.status != $%d", selectArgIndex)

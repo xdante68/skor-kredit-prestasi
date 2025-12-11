@@ -127,7 +127,7 @@ func (r *StudentRepo) FindAll(page, limit int, search, sortBy, order string) ([]
 			return nil, 0, err
 		}
 
-		s.User.ID = s.UserID 
+		s.User.ID = s.UserID
 		if userName.Valid {
 			s.User.Username = userName.String
 			s.User.Email = userEmail.String
@@ -153,7 +153,6 @@ func (r *StudentRepo) FindByID(id uuid.UUID) (*model.Student, error) {
 	query := `
 		SELECT s.id, s.user_id, s.student_id, s.program_study, s.academic_year, s.advisor_id, s.created_at,
 		       u.username, u.email, u.full_name,
-		       a.id, a.lecturer_id,
 		       au.full_name
 		FROM students s
 		JOIN users u ON u.id = s.user_id
@@ -163,13 +162,11 @@ func (r *StudentRepo) FindByID(id uuid.UUID) (*model.Student, error) {
 
 	var s model.Student
 	var userName, userEmail, userFullName sql.NullString
-	var advisorID, advisorLecturerID sql.NullString
 	var advisorUserFullName sql.NullString
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&s.ID, &s.UserID, &s.StudentID, &s.ProgramStudy, &s.AcademicYear, &s.AdvisorID, &s.CreatedAt,
 		&userName, &userEmail, &userFullName,
-		&advisorID, &advisorLecturerID,
 		&advisorUserFullName,
 	)
 	if err != nil {
@@ -183,13 +180,9 @@ func (r *StudentRepo) FindByID(id uuid.UUID) (*model.Student, error) {
 		s.User.FullName = userFullName.String
 	}
 
-	if advisorID.Valid {
+	if s.AdvisorID != nil && advisorUserFullName.Valid {
 		s.Advisor = &model.Lecturer{}
-		s.Advisor.ID, _ = uuid.Parse(advisorID.String)
-		s.Advisor.LecturerID = advisorLecturerID.String
-		if advisorUserFullName.Valid {
-			s.Advisor.User.FullName = advisorUserFullName.String
-		}
+		s.Advisor.User.FullName = advisorUserFullName.String
 	}
 
 	return &s, nil

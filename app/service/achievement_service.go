@@ -29,7 +29,7 @@ func NewAchievementService(repo repo.AchievementRepository, studentRepo repo.Stu
 	}
 }
 
-// /api/v1/achievements
+// GET /api/v1/achievements
 func (s *AchievementService) List(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uuid.UUID)
 	role := c.Locals("role").(string)
@@ -72,7 +72,7 @@ func (s *AchievementService) List(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id
+// GET /api/v1/achievements/:id
 func (s *AchievementService) Get(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -123,7 +123,7 @@ func (s *AchievementService) Get(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements
+// POST /api/v1/achievements
 func (s *AchievementService) Create(c *fiber.Ctx) error {
 
 	var req model.CreateAchievementRequest
@@ -166,7 +166,7 @@ func (s *AchievementService) Create(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id
+// PUT /api/v1/achievements/:id
 func (s *AchievementService) Update(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -235,7 +235,7 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id
+// DELETE /api/v1/achievements/:id
 func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -285,7 +285,7 @@ func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id/submit
+// PUT /api/v1/achievements/:id/submit
 func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -334,7 +334,7 @@ func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id/verify
+// PUT /api/v1/achievements/:id/verify
 func (s *AchievementService) Verify(c *fiber.Ctx) error {
 
 	id, err := uuid.Parse(c.Params("id"))
@@ -401,7 +401,7 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id/reject
+// PUT /api/v1/achievements/:id/reject
 func (s *AchievementService) Reject(c *fiber.Ctx) error {
 
 	var req model.RejectRequest
@@ -468,7 +468,7 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id/history
+// GET /api/v1/achievements/:id/history
 func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -513,7 +513,7 @@ func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/achievements/:id/attachments
+// POST /api/v1/achievements/:id/attachments
 func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 
 	id, err := uuid.Parse(c.Params("id"))

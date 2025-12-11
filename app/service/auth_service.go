@@ -19,7 +19,7 @@ func NewAuthService(repo repo.UserRepository) *AuthService {
 	return &AuthService{repo: repo}
 }
 
-// /api/v1/auth/login
+// GET /api/v1/auth/login
 func (s *AuthService) Login(c *fiber.Ctx) error {
 	var req model.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -97,7 +97,7 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/auth/refresh
+// GET /api/v1/auth/refresh
 func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	var req model.RefreshTokenRequest
 
@@ -160,7 +160,7 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/auth/logout
+// GET /api/v1/auth/logout
 func (s *AuthService) Logout(c *fiber.Ctx) error {
 	bearer := strings.TrimSpace(c.Get("Authorization"))
 	if bearer == "" {
@@ -223,7 +223,7 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 	})
 }
 
-// /api/v1/auth/profile
+// GET /api/v1/auth/profile
 func (s *AuthService) Profile(c *fiber.Ctx) error {
 	var userID string
 	switch v := c.Locals("user_id").(type) {

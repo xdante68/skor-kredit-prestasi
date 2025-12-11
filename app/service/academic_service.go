@@ -101,6 +101,11 @@ func (s *AcademicService) GetStudentDetail(c *fiber.Ctx) error {
 		})
 	}
 
+	advisorName := ""
+	if st.Advisor != nil {
+		advisorName = st.Advisor.User.FullName
+	}
+
 	return c.JSON(model.SuccessResponse[model.StudentDetailResponse]{
 		Success: true,
 		Data: model.StudentDetailResponse{
@@ -109,7 +114,7 @@ func (s *AcademicService) GetStudentDetail(c *fiber.Ctx) error {
 			FullName:     st.User.FullName,
 			Email:        st.User.Email,
 			ProgramStudy: st.ProgramStudy,
-			Advisor:      st.Advisor,
+			AdvisorName:  advisorName,
 		},
 	})
 }

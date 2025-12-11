@@ -19,11 +19,13 @@ func SetupRoutes(app *fiber.App, pgDB *sql.DB, mongoDB *mongo.Database) {
 	studentRepo := repo.NewStudentRepo(pgDB)
 	lecturerRepo := repo.NewLecturerRepo(pgDB)
 	achievementRepo := repo.NewAchievementRepo(pgDB, mongoDB)
+	reportRepo := repo.NewReportRepo(pgDB, mongoDB)
 
 	authService := service.NewAuthService(userRepo)
 	userService := service.NewUserService(userRepo, studentRepo, lecturerRepo)
 	academicService := service.NewAcademicService(studentRepo, lecturerRepo, achievementRepo)
 	achievementSvc := service.NewAchievementService(achievementRepo, studentRepo, lecturerRepo)
+	reportService := service.NewReportService(reportRepo, studentRepo)
 
 	auth := v1.Group("/auth")
 
@@ -70,4 +72,9 @@ func SetupRoutes(app *fiber.App, pgDB *sql.DB, mongoDB *mongo.Database) {
 	achievements.Post("/:id/reject", middleware.PermissionsRequired("achievement:verify"), achievementSvc.Reject)
 	achievements.Get("/:id/history", achievementSvc.GetHistory)
 	achievements.Post("/:id/attachments", middleware.PermissionsRequired("achievement:create"), achievementSvc.UploadAttachment)
+
+	// Reports endpoint
+	reports := protected.Group("/reports")
+	reports.Get("/statistics", reportService.GetStatistics)
+	reports.Get("/student/:id", reportService.GetStudentStats)
 }

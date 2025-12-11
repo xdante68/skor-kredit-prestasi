@@ -12,9 +12,8 @@ import (
 type UserRepository interface {
 	Create(user *model.User) error
 	FindByUsername(username string) (*model.User, error)
-	getPermissionsForRole(roleID uuid.UUID) ([]model.Permission, error)
 	FindByUserID(id uuid.UUID) (*model.User, error)
-	FindByUserIDSimple(id uuid.UUID) (*model.User, error) 
+	FindByUserIDSimple(id uuid.UUID) (*model.User, error)
 	FindAll(page, limit int, search, sortBy, order string) ([]model.User, int64, error)
 	Update(user *model.User) error
 	Delete(id uuid.UUID) error

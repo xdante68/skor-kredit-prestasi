@@ -35,5 +35,5 @@ type StudentDetailResponse struct {
 	FullName     string    `json:"full_name"`
 	Email        string    `json:"email"`
 	ProgramStudy string    `json:"program_study"`
-	Advisor      *Lecturer `json:"advisor"`
+	AdvisorName  string    `json:"advisor_name"`
 }

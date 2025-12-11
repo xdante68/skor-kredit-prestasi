@@ -64,7 +64,6 @@ func connectMongo() {
 
 	dbName := config.GetMongoDB()
 	Mongo = client.Database(dbName)
-
 	log.Println("Berhasil terhubung ke MongoDB")
 }
 

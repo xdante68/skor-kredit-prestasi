@@ -145,3 +145,28 @@ type AchievementHistoryResponse struct {
 	RejectionNote string     `json:"rejection_note,omitempty"`
 	Points        int        `json:"points,omitempty"`
 }
+
+type StatItem struct {
+	Label string `json:"label" bson:"_id"`
+	Count int    `json:"count" bson:"count"`
+}
+type TopStudent struct {
+	StudentID          string `json:"student_id"`
+	StudentName        string `json:"student_name"`
+	Program            string `json:"program_study"`
+	TotalAchievements  int    `json:"total_achievements"`
+	TotalPoints        int    `json:"total_points"`
+}
+
+type StatsResponse struct {
+	TotalAchievements int64        `json:"total_achievements"`
+	ByType            []StatItem   `json:"by_type"`
+	ByLevel           []StatItem   `json:"by_competition_level"`
+	ByPeriod          []StatItem   `json:"by_period"`
+	TopStudents       []TopStudent `json:"top_students"`
+}
+
+type StudentStatsResponse struct {
+	StudentProfile TopStudent `json:"student_profile"`
+	Stats          StatsResponse `json:"stats"`
+}
