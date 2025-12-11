@@ -34,6 +34,13 @@ type AchievementRepo struct {
 	mongoDB *mongo.Database
 }
 
+var achievementSortWhitelist = map[string]string{
+	"created_at": "ar.created_at",
+	"updated_at": "ar.updated_at",
+	"status":     "ar.status",
+	"date":       "ar.created_at",
+}
+
 func NewAchievementRepo(pgDB *sql.DB, mongoDB *mongo.Database) *AchievementRepo {
 	return &AchievementRepo{pgDB: pgDB, mongoDB: mongoDB}
 }
@@ -267,14 +274,11 @@ func (r *AchievementRepo) FindAll(role string, userID uuid.UUID, page, limit int
 		selectArgIndex++
 	}
 
-	if sortBy == "date" {
-		sortBy = "created_at"
+	if order != "asc" && order != "desc" {
+		order = "desc"
 	}
-	if sortBy == "created_at" || sortBy == "updated_at" || sortBy == "status" {
-		if order != "asc" && order != "desc" {
-			order = "desc"
-		}
-		mainQuery += fmt.Sprintf(" ORDER BY ar.%s %s", sortBy, order)
+	if sortColumn, ok := achievementSortWhitelist[sortBy]; ok {
+		mainQuery += fmt.Sprintf(" ORDER BY %s %s", sortColumn, order)
 	} else {
 		mainQuery += " ORDER BY ar.created_at DESC"
 	}
