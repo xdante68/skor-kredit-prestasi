@@ -24,7 +24,20 @@ func NewUserService(userRepo repo.UserRepository, studentRepo repo.StudentReposi
 	}
 }
 
-// GET /api/v1/users
+// GetAllUsers godoc
+// @Summary Get all users
+// @Description Get paginated list of all users
+// @Tags 5.2 Users (Admin)
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param search query string false "Search keyword"
+// @Param sortBy query string false "Sort by field" Enums(username, email, full_name, created_at)
+// @Param order query string false "Sort order" Enums(asc, desc)
+// @Success 200 {object} model.SwaggerUserListResponse
+// @Failure 500 {object} model.ErrorResponse
+// @Router /users [get]
 func (s *UserService) GetAllUsers(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	limit := c.QueryInt("limit", 10)
@@ -76,7 +89,17 @@ func (s *UserService) GetAllUsers(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/users/:id
+// GetUser godoc
+// @Summary Get detail user by ID
+// @Description Get single user details
+// @Tags 5.2 Users (Admin)
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Success 200 {object} model.SwaggerUserResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /users/{id} [get]
 func (s *UserService) GetUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	userUUID, err := uuid.Parse(id)
@@ -97,7 +120,7 @@ func (s *UserService) GetUser(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(model.SuccessResponse[model.UserResponse]{
+	return c.JSON(model.SwaggerUserResponse{
 		Success: true,
 		Data: model.UserResponse{
 			ID:       user.ID,
@@ -109,7 +132,18 @@ func (s *UserService) GetUser(c *fiber.Ctx) error {
 	})
 }
 
-// POST /api/v1/users
+// CreateUser godoc
+// @Summary Create new user
+// @Description Create a new user with role
+// @Tags 5.2 Users (Admin)
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body model.CreateUserRequest true "User data"
+// @Success 201 {object} model.SwaggerUserResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 500 {object} model.ErrorResponse
+// @Router /users [post]
 func (s *UserService) CreateUser(c *fiber.Ctx) error {
 	var req model.CreateUserRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -247,7 +281,19 @@ func (s *UserService) CreateUser(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /api/v1/users/:id
+// UpdateUser godoc
+// @Summary Update user
+// @Description Update existing user data
+// @Tags 5.2 Users (Admin)
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body model.UpdateUserRequest true "User data"
+// @Success 200 {object} model.SwaggerUserResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /users/{id} [put]
 func (s *UserService) UpdateUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	userUUID, err := uuid.Parse(id)
@@ -320,7 +366,17 @@ func (s *UserService) UpdateUser(c *fiber.Ctx) error {
 	})
 }
 
-// DELETE /api/v1/users/:id
+// DeleteUser godoc
+// @Summary Delete user
+// @Description Delete user by ID
+// @Tags 5.2 Users (Admin)
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 500 {object} model.ErrorResponse
+// @Router /users/{id} [delete]
 func (s *UserService) DeleteUser(c *fiber.Ctx) error {
 	id := c.Params("id")
 	userUUID, err := uuid.Parse(id)
@@ -349,7 +405,19 @@ func (s *UserService) DeleteUser(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /api/v1/users/:id/role
+// ChangeRole godoc
+// @Summary Change user role
+// @Description Update user role
+// @Tags 5.2 Users (Admin)
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body model.ChangeRoleRequest true "Role data"
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /users/{id}/role [put]
 func (s *UserService) ChangeRole(c *fiber.Ctx) error {
 	id := c.Params("id")
 	userUUID, err := uuid.Parse(id)

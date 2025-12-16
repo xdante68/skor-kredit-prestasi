@@ -19,7 +19,17 @@ func NewAuthService(repo repo.UserRepository) *AuthService {
 	return &AuthService{repo: repo}
 }
 
-// GET /api/v1/auth/login
+// Login godoc
+// @Summary Login user
+// @Description Authenticate user and return JWT tokens
+// @Tags 5.1 Authentication
+// @Accept json
+// @Produce json
+// @Param request body model.LoginRequest true "Login credentials"
+// @Success 200 {object} model.LoginSuccessResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 401 {object} model.ErrorResponse
+// @Router /auth/login [post]
 func (s *AuthService) Login(c *fiber.Ctx) error {
 	var req model.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -97,7 +107,17 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/auth/refresh
+// Refresh godoc
+// @Summary Refresh access token
+// @Description Get new access token using refresh token
+// @Tags 5.1 Authentication
+// @Accept json
+// @Produce json
+// @Param request body model.RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} model.SwaggerRefreshResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 401 {object} model.ErrorResponse
+// @Router /auth/refresh [post]
 func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	var req model.RefreshTokenRequest
 
@@ -151,7 +171,7 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(model.SuccessResponse[model.RefreshTokenResponse]{
+	return c.JSON(model.SwaggerRefreshResponse{
 		Success: true,
 		Message: "Token refresh berhasil",
 		Data: model.RefreshTokenResponse{
@@ -160,7 +180,16 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/auth/logout
+// Logout godoc
+// @Summary Logout user
+// @Description Invalidate JWT tokens
+// @Tags 5.1 Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 401 {object} model.ErrorResponse
+// @Router /auth/logout [post]
 func (s *AuthService) Logout(c *fiber.Ctx) error {
 	bearer := strings.TrimSpace(c.Get("Authorization"))
 	if bearer == "" {
@@ -223,7 +252,15 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/auth/profile
+// Profile godoc
+// @Summary Get current user profile
+// @Description Get profile of authenticated user
+// @Tags 5.1 Authentication
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} model.ProfileResponse
+// @Failure 401 {object} model.ErrorResponse
+// @Router /auth/profile [get]
 func (s *AuthService) Profile(c *fiber.Ctx) error {
 	var userID string
 	switch v := c.Locals("user_id").(type) {

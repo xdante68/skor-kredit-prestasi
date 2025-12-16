@@ -23,7 +23,20 @@ func NewAcademicService(sRepo repo.StudentRepository, lRepo repo.LecturerReposit
 	}
 }
 
-// GET /api/v1/students
+// GetAllStudents godoc
+// @Summary Get all students
+// @Description Get paginated list of students
+// @Tags 5.4 Students & Lecturers
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param search query string false "Search keyword"
+// @Param sortBy query string false "Sort by field"
+// @Param order query string false "Sort order" Enums(asc, desc)
+// @Success 200 {object} model.SwaggerStudentListResponse
+// @Failure 500 {object} model.ErrorResponse
+// @Router /students [get]
 func (s *AcademicService) GetAllStudents(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	limit := c.QueryInt("limit", 10)
@@ -80,7 +93,17 @@ func (s *AcademicService) GetAllStudents(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/students/:id
+// GetStudentDetail godoc
+// @Summary Get student by ID
+// @Description Get student details
+// @Tags 5.4 Students & Lecturers
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Student ID"
+// @Success 200 {object} model.SwaggerStudentDetailResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /students/{id} [get]
 func (s *AcademicService) GetStudentDetail(c *fiber.Ctx) error {
 	id := c.Params("id")
 	studentUUID, err := uuid.Parse(id)
@@ -106,7 +129,7 @@ func (s *AcademicService) GetStudentDetail(c *fiber.Ctx) error {
 		advisorName = st.Advisor.User.FullName
 	}
 
-	return c.JSON(model.SuccessResponse[model.StudentDetailResponse]{
+	return c.JSON(model.SwaggerStudentDetailResponse{
 		Success: true,
 		Data: model.StudentDetailResponse{
 			ID:           st.ID,
@@ -119,7 +142,19 @@ func (s *AcademicService) GetStudentDetail(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /api/v1/students/:id/advisor
+// AssignAdvisor godoc
+// @Summary Assign advisor to student
+// @Description Assign a lecturer as student advisor
+// @Tags 5.4 Students & Lecturers
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Student ID"
+// @Param request body model.AssignAdvisorRequest true "Advisor data"
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /students/{id}/advisor [put]
 func (s *AcademicService) AssignAdvisor(c *fiber.Ctx) error {
 	studentID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -168,7 +203,19 @@ func (s *AcademicService) AssignAdvisor(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/students/:id/achievements
+// GetStudentAchievements godoc
+// @Summary Get student achievements
+// @Description Get all achievements of a student
+// @Tags 5.4 Students & Lecturers
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Student ID"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Success 200 {object} model.SwaggerAchievementListResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /students/{id}/achievements [get]
 func (s *AcademicService) GetStudentAchievements(c *fiber.Ctx) error {
 	studentID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -224,7 +271,20 @@ func (s *AcademicService) GetStudentAchievements(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/lecturers
+// GetAllLecturers godoc
+// @Summary Get all lecturers
+// @Description Get paginated list of lecturers
+// @Tags 5.4 Students & Lecturers
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param search query string false "Search keyword"
+// @Param sortBy query string false "Sort by field"
+// @Param order query string false "Sort order" Enums(asc, desc)
+// @Success 200 {object} model.SwaggerLecturerListResponse
+// @Failure 500 {object} model.ErrorResponse
+// @Router /lecturers [get]
 func (s *AcademicService) GetAllLecturers(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	limit := c.QueryInt("limit", 10)
@@ -274,7 +334,17 @@ func (s *AcademicService) GetAllLecturers(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/lecturers/:id/advisees
+// GetAdvisees godoc
+// @Summary Get lecturer advisees
+// @Description Get all students advised by a lecturer
+// @Tags 5.4 Students & Lecturers
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Lecturer ID"
+// @Success 200 {object} model.SwaggerAdviseesResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /lecturers/{id}/advisees [get]
 func (s *AcademicService) GetAdvisees(c *fiber.Ctx) error {
 	advisorID, err := uuid.Parse(c.Params("id"))
 	if err != nil {

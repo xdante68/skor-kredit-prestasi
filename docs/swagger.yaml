@@ -1,0 +1,1579 @@
+basePath: /api/v1
+definitions:
+  model.AchievementDetails:
+    properties:
+      authors:
+        items:
+          type: string
+        type: array
+      certificationName:
+        description: Certification
+        type: string
+      certificationNumber:
+        type: string
+      competitionLevel:
+        type: string
+      competitionName:
+        description: Competition
+        type: string
+      eventDate:
+        description: General
+        type: string
+      issn:
+        type: string
+      issuedBy:
+        type: string
+      location:
+        type: string
+      medalType:
+        type: string
+      organizationName:
+        description: Organization
+        type: string
+      organizer:
+        type: string
+      period:
+        $ref: '#/definitions/model.OrganizationPeriod'
+      position:
+        type: string
+      publicationTitle:
+        type: string
+      publicationType:
+        description: Publication
+        type: string
+      publisher:
+        type: string
+      rank:
+        type: integer
+      score:
+        type: number
+      validUntil:
+        type: string
+    type: object
+  model.AchievementResponse:
+    properties:
+      achievement_type:
+        type: string
+      attachments:
+        items:
+          $ref: '#/definitions/model.Attachment'
+        type: array
+      created_at:
+        type: string
+      description:
+        type: string
+      details:
+        $ref: '#/definitions/model.AchievementDetails'
+      id:
+        type: string
+      mongo_achievement_id:
+        type: string
+      points:
+        type: integer
+      rejection_note:
+        type: string
+      status:
+        type: string
+      student_id:
+        type: string
+      student_name:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.AssignAdvisorRequest:
+    properties:
+      lecturer_id:
+        type: string
+    type: object
+  model.Attachment:
+    properties:
+      fileName:
+        type: string
+      fileType:
+        type: string
+      fileUrl:
+        type: string
+      uploadedAt:
+        type: string
+    type: object
+  model.AttachmentResponse:
+    properties:
+      filename:
+        type: string
+      mime_type:
+        type: string
+      size:
+        type: integer
+      uploaded_at:
+        type: string
+      url:
+        type: string
+    type: object
+  model.ChangeRoleRequest:
+    properties:
+      lecturer:
+        $ref: '#/definitions/model.CreateLecturerData'
+      role:
+        enum:
+        - admin
+        - mahasiswa
+        - dosen_wali
+        type: string
+      student:
+        $ref: '#/definitions/model.CreateStudentData'
+    required:
+    - role
+    type: object
+  model.CompetitionRequest:
+    properties:
+      competition_level:
+        type: string
+      competition_name:
+        type: string
+      medal_type:
+        type: string
+      rank:
+        type: integer
+    type: object
+  model.CreateAchievementRequest:
+    properties:
+      achievement_type:
+        enum:
+        - academic
+        - competition
+        - organization
+        - publication
+        - certification
+        - other
+        type: string
+      competition_details:
+        $ref: '#/definitions/model.CompetitionRequest'
+      description:
+        type: string
+      event_date:
+        type: string
+      organization_details:
+        $ref: '#/definitions/model.OrganizationRequest'
+      publication_details:
+        $ref: '#/definitions/model.PublicationRequest'
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    required:
+    - achievement_type
+    - title
+    type: object
+  model.CreateLecturerData:
+    properties:
+      department:
+        type: string
+    required:
+    - department
+    type: object
+  model.CreateStudentData:
+    properties:
+      academic_year:
+        type: string
+      program_study:
+        type: string
+    required:
+    - academic_year
+    - program_study
+    type: object
+  model.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      lecturer:
+        $ref: '#/definitions/model.CreateLecturerData'
+      password:
+        minLength: 6
+        type: string
+      role:
+        enum:
+        - admin
+        - mahasiswa
+        - dosen_wali
+        type: string
+      student:
+        $ref: '#/definitions/model.CreateStudentData'
+      username:
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    - role
+    - username
+    type: object
+  model.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  model.LecturerListResponse:
+    properties:
+      department:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      lecturer_id:
+        type: string
+    type: object
+  model.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  model.LoginResponse:
+    properties:
+      refreshToken:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/model.LoginUser'
+    type: object
+  model.LoginSuccessResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.LoginResponse'
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  model.LoginUser:
+    properties:
+      fullName:
+        type: string
+      id:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+  model.MetaInfo:
+    properties:
+      limit:
+        type: integer
+      order:
+        type: string
+      page:
+        type: integer
+      pages:
+        type: integer
+      search:
+        type: string
+      sortBy:
+        type: string
+      total:
+        type: integer
+    type: object
+  model.OrganizationPeriod:
+    properties:
+      end:
+        type: string
+      start:
+        type: string
+    type: object
+  model.OrganizationRequest:
+    properties:
+      end_date:
+        type: string
+      organization_name:
+        type: string
+      position:
+        type: string
+      start_date:
+        type: string
+    type: object
+  model.ProfileData:
+    properties:
+      role:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  model.ProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.ProfileData'
+      success:
+        type: boolean
+    type: object
+  model.PublicationRequest:
+    properties:
+      authors:
+        items:
+          type: string
+        type: array
+      issn:
+        type: string
+      publication_title:
+        type: string
+      publisher:
+        type: string
+    type: object
+  model.RefreshTokenRequest:
+    properties:
+      refreshToken:
+        type: string
+    required:
+    - refreshToken
+    type: object
+  model.RefreshTokenResponse:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
+  model.RejectRequest:
+    properties:
+      rejection_note:
+        type: string
+    required:
+    - rejection_note
+    type: object
+  model.StatItem:
+    properties:
+      count:
+        type: integer
+      label:
+        type: string
+    type: object
+  model.StatsResponse:
+    properties:
+      by_competition_level:
+        items:
+          $ref: '#/definitions/model.StatItem'
+        type: array
+      by_period:
+        items:
+          $ref: '#/definitions/model.StatItem'
+        type: array
+      by_type:
+        items:
+          $ref: '#/definitions/model.StatItem'
+        type: array
+      top_students:
+        items:
+          $ref: '#/definitions/model.TopStudent'
+        type: array
+      total_achievements:
+        type: integer
+    type: object
+  model.StudentDetailResponse:
+    properties:
+      advisor_name:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      program_study:
+        type: string
+      student_id:
+        type: string
+    type: object
+  model.StudentListResponse:
+    properties:
+      advisor_name:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      program_study:
+        type: string
+      student_id:
+        type: string
+    type: object
+  model.StudentStatsResponse:
+    properties:
+      stats:
+        $ref: '#/definitions/model.StatsResponse'
+      student_profile:
+        $ref: '#/definitions/model.TopStudent'
+    type: object
+  model.SuccessMessageResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  model.SwaggerAchievementHistoryResponse:
+    properties:
+      data:
+        items: {}
+        type: array
+      success:
+        type: boolean
+    type: object
+  model.SwaggerAchievementListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.AchievementResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/model.MetaInfo'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerAchievementResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.AchievementResponse'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerAdviseesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.StudentListResponse'
+        type: array
+      success:
+        type: boolean
+    type: object
+  model.SwaggerAttachmentResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.AttachmentResponse'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerLecturerListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.LecturerListResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/model.MetaInfo'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerRefreshResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.RefreshTokenResponse'
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  model.SwaggerStatsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.StatsResponse'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerStudentDetailResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.StudentDetailResponse'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerStudentListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.StudentListResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/model.MetaInfo'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerStudentStatsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.StudentStatsResponse'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerUserListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.UserResponse'
+        type: array
+      meta:
+        $ref: '#/definitions/model.MetaInfo'
+      success:
+        type: boolean
+    type: object
+  model.SwaggerUserResponse:
+    properties:
+      data:
+        $ref: '#/definitions/model.UserResponse'
+      success:
+        type: boolean
+    type: object
+  model.TopStudent:
+    properties:
+      program_study:
+        type: string
+      student_id:
+        type: string
+      student_name:
+        type: string
+      total_achievements:
+        type: integer
+      total_points:
+        type: integer
+    type: object
+  model.UpdateAchievementRequest:
+    properties:
+      achievement_type:
+        enum:
+        - academic
+        - competition
+        - organization
+        - publication
+        - certification
+        - other
+        type: string
+      competition_details:
+        $ref: '#/definitions/model.CompetitionRequest'
+      description:
+        type: string
+      event_date:
+        type: string
+      organization_details:
+        $ref: '#/definitions/model.OrganizationRequest'
+      publication_details:
+        $ref: '#/definitions/model.PublicationRequest'
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  model.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      username:
+        type: string
+    type: object
+  model.UserResponse:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+  model.VerifyRequest:
+    properties:
+      points:
+        type: integer
+    required:
+    - points
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@skp.ac.id
+    name: API Support
+  description: API untuk Sistem Kredit Prestasi (SKP) Mahasiswa
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: SKP API
+  version: "1.0"
+paths:
+  /achievements:
+    get:
+      description: Get paginated list of achievements based on user role
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Search keyword
+        in: query
+        name: search
+        type: string
+      - description: Sort by field
+        in: query
+        name: sortBy
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerAchievementListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List achievements
+      tags:
+      - 5.3 Achievements
+    post:
+      consumes:
+      - application/json
+      description: Create a new achievement (mahasiswa only)
+      parameters:
+      - description: Achievement data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateAchievementRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.SwaggerAchievementResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create new achievement
+      tags:
+      - 5.3 Achievements
+  /achievements/{id}:
+    delete:
+      description: Soft delete achievement
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete achievement
+      tags:
+      - 5.3 Achievements
+    get:
+      description: Get single achievement details
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerAchievementResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get achievement by ID
+      tags:
+      - 5.3 Achievements
+    put:
+      consumes:
+      - application/json
+      description: Update existing achievement
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Achievement data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateAchievementRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerAchievementResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update achievement
+      tags:
+      - 5.3 Achievements
+  /achievements/{id}/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload file attachment for achievement
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerAttachmentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Upload attachment
+      tags:
+      - 5.3 Achievements
+  /achievements/{id}/history:
+    get:
+      description: Get status change history of an achievement
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerAchievementHistoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get achievement history
+      tags:
+      - 5.3 Achievements
+  /achievements/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: Reject achievement with reason (dosen wali/admin only)
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rejection data with note
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.RejectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reject achievement
+      tags:
+      - 5.3 Achievements
+  /achievements/{id}/submit:
+    post:
+      description: Submit draft achievement for verification
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Submit achievement for review
+      tags:
+      - 5.3 Achievements
+  /achievements/{id}/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verify and approve achievement (dosen wali/admin only)
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Verification data with points
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.VerifyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Verify achievement
+      tags:
+      - 5.3 Achievements
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.LoginSuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Login user
+      tags:
+      - 5.1 Authentication
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate JWT tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - 5.1 Authentication
+  /auth/profile:
+    get:
+      description: Get profile of authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ProfileResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - 5.1 Authentication
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get new access token using refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerRefreshResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - 5.1 Authentication
+  /lecturers:
+    get:
+      description: Get paginated list of lecturers
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Search keyword
+        in: query
+        name: search
+        type: string
+      - description: Sort by field
+        in: query
+        name: sortBy
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerLecturerListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all lecturers
+      tags:
+      - 5.4 Students & Lecturers
+  /lecturers/{id}/advisees:
+    get:
+      description: Get all students advised by a lecturer
+      parameters:
+      - description: Lecturer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerAdviseesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get lecturer advisees
+      tags:
+      - 5.4 Students & Lecturers
+  /reports/statistics:
+    get:
+      description: Get achievement statistics based on user role
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerStatsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get statistics
+      tags:
+      - 5.5 Reports & Analytics
+  /reports/student/{id}:
+    get:
+      description: Get detailed statistics for a specific student
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerStudentStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get student statistics
+      tags:
+      - 5.5 Reports & Analytics
+  /students:
+    get:
+      description: Get paginated list of students
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Search keyword
+        in: query
+        name: search
+        type: string
+      - description: Sort by field
+        in: query
+        name: sortBy
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerStudentListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all students
+      tags:
+      - 5.4 Students & Lecturers
+  /students/{id}:
+    get:
+      description: Get student details
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerStudentDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get student by ID
+      tags:
+      - 5.4 Students & Lecturers
+  /students/{id}/achievements:
+    get:
+      description: Get all achievements of a student
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerAchievementListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get student achievements
+      tags:
+      - 5.4 Students & Lecturers
+  /students/{id}/advisor:
+    put:
+      consumes:
+      - application/json
+      description: Assign a lecturer as student advisor
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Advisor data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.AssignAdvisorRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Assign advisor to student
+      tags:
+      - 5.4 Students & Lecturers
+  /users:
+    get:
+      description: Get paginated list of all users
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Search keyword
+        in: query
+        name: search
+        type: string
+      - description: Sort by field
+        enum:
+        - username
+        - email
+        - full_name
+        - created_at
+        in: query
+        name: sortBy
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerUserListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all users
+      tags:
+      - 5.2 Users (Admin)
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with role
+      parameters:
+      - description: User data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.SwaggerUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create new user
+      tags:
+      - 5.2 Users (Admin)
+  /users/{id}:
+    delete:
+      description: Delete user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete user
+      tags:
+      - 5.2 Users (Admin)
+    get:
+      description: Get single user details
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user by ID
+      tags:
+      - 5.2 Users (Admin)
+    put:
+      consumes:
+      - application/json
+      description: Update existing user data
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SwaggerUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user
+      tags:
+      - 5.2 Users (Admin)
+  /users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Update user role
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.ChangeRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.SuccessMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change user role
+      tags:
+      - 5.2 Users (Admin)
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+tags:
+- description: Endpoint untuk autentikasi (login, logout, refresh token, profile)
+  name: 5.1 Authentication
+- description: Endpoint manajemen user (Admin only) - CRUD dan change role
+  name: 5.2 Users (Admin)
+- description: Endpoint manajemen prestasi mahasiswa - CRUD, submit, verify, reject,
+    history, upload
+  name: 5.3 Achievements
+- description: Endpoint manajemen mahasiswa, dosen, dan assign dosen wali
+  name: 5.4 Students & Lecturers
+- description: Endpoint statistik dan laporan prestasi
+  name: 5.5 Reports & Analytics

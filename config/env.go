@@ -44,8 +44,5 @@ func GetJWTSecret() string {
 }
 
 func GetAppPort() string {
-	if Env.AppPort == "" {
-		return "3000"
-	}
 	return Env.AppPort
 }

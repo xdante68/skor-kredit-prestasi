@@ -22,7 +22,6 @@ type AchievementRepository interface {
 	UpdateStatus(id uuid.UUID, status string, verifierID *uuid.UUID, note string, points int) error
 	Delete(id uuid.UUID) error
 	AddAttachment(id uuid.UUID, attachment model.Attachment) error
-	mapToResponse(ref model.AchievementReference, mongoDoc model.AchievementMongo) *model.AchievementResponse
 	GetOwnerID(id uuid.UUID) (uuid.UUID, error)
 	IsAdvisor(advisorID uuid.UUID, achievementID uuid.UUID) (bool, error)
 	GetStatus(id uuid.UUID) (string, error)

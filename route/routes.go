@@ -2,16 +2,25 @@ package route
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
+	swagger "github.com/swaggo/fiber-swagger"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"fiber/skp/app/model"
 	"fiber/skp/app/repo"
 	"fiber/skp/app/service"
+	"fiber/skp/config"
 	"fiber/skp/middleware"
 )
 
 func SetupRoutes(app *fiber.App, pgDB *sql.DB, mongoDB *mongo.Database) {
+
+	app.Use(config.AuditLogger())
+	app.Get("/swagger/*", swagger.WrapHandler)
+
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
 
@@ -27,9 +36,20 @@ func SetupRoutes(app *fiber.App, pgDB *sql.DB, mongoDB *mongo.Database) {
 	achievementSvc := service.NewAchievementService(achievementRepo, studentRepo, lecturerRepo)
 	reportService := service.NewReportService(reportRepo, studentRepo)
 
+	loginLimiter := limiter.New(limiter.Config{
+		Max:        5,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(429).JSON(model.ErrorResponse{
+				Success: false,
+				Message: "Terlalu banyak percobaan login. Coba lagi dalam 1 menit.",
+			})
+		},
+	})
+
 	auth := v1.Group("/auth")
 
-	auth.Post("/login", authService.Login)
+	auth.Post("/login", loginLimiter, authService.Login)
 	auth.Post("/refresh", authService.Refresh)
 	auth.Post("/logout", authService.Logout)
 

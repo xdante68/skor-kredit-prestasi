@@ -29,7 +29,20 @@ func NewAchievementService(repo repo.AchievementRepository, studentRepo repo.Stu
 	}
 }
 
-// GET /api/v1/achievements
+// List godoc
+// @Summary List achievements
+// @Description Get paginated list of achievements based on user role
+// @Tags 5.3 Achievements
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param search query string false "Search keyword"
+// @Param sortBy query string false "Sort by field"
+// @Param order query string false "Sort order" Enums(asc, desc)
+// @Success 200 {object} model.SwaggerAchievementListResponse
+// @Failure 500 {object} model.ErrorResponse
+// @Router /achievements [get]
 func (s *AchievementService) List(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uuid.UUID)
 	role := c.Locals("role").(string)
@@ -72,7 +85,17 @@ func (s *AchievementService) List(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/achievements/:id
+// Get godoc
+// @Summary Get achievement by ID
+// @Description Get single achievement details
+// @Tags 5.3 Achievements
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Success 200 {object} model.SwaggerAchievementResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /achievements/{id} [get]
 func (s *AchievementService) Get(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -123,7 +146,18 @@ func (s *AchievementService) Get(c *fiber.Ctx) error {
 	})
 }
 
-// POST /api/v1/achievements
+// Create godoc
+// @Summary Create new achievement
+// @Description Create a new achievement (mahasiswa only)
+// @Tags 5.3 Achievements
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body model.CreateAchievementRequest true "Achievement data"
+// @Success 201 {object} model.SwaggerAchievementResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 500 {object} model.ErrorResponse
+// @Router /achievements [post]
 func (s *AchievementService) Create(c *fiber.Ctx) error {
 
 	var req model.CreateAchievementRequest
@@ -139,6 +173,18 @@ func (s *AchievementService) Create(c *fiber.Ctx) error {
 			Success: false,
 			Message: "Validasi gagal",
 			Error:   helper.FormatValidationErrors(err),
+		})
+	}
+
+	// Explicit enum validation for achievement type
+	validTypes := map[string]bool{
+		"academic": true, "competition": true, "organization": true,
+		"publication": true, "certification": true, "other": true,
+	}
+	if !validTypes[req.AchievementType] {
+		return c.Status(400).JSON(model.ErrorResponse{
+			Success: false,
+			Message: "Tipe prestasi tidak valid. Gunakan: academic, competition, organization, publication, certification, other",
 		})
 	}
 
@@ -166,7 +212,19 @@ func (s *AchievementService) Create(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /api/v1/achievements/:id
+// Update godoc
+// @Summary Update achievement
+// @Description Update existing achievement
+// @Tags 5.3 Achievements
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Param request body model.UpdateAchievementRequest true "Achievement data"
+// @Success 200 {object} model.SwaggerAchievementResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 403 {object} model.ErrorResponse
+// @Router /achievements/{id} [put]
 func (s *AchievementService) Update(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -235,7 +293,17 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	})
 }
 
-// DELETE /api/v1/achievements/:id
+// Delete godoc
+// @Summary Delete achievement
+// @Description Soft delete achievement
+// @Tags 5.3 Achievements
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 403 {object} model.ErrorResponse
+// @Router /achievements/{id} [delete]
 func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -285,7 +353,17 @@ func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /api/v1/achievements/:id/submit
+// Submit godoc
+// @Summary Submit achievement for review
+// @Description Submit draft achievement for verification
+// @Tags 5.3 Achievements
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 403 {object} model.ErrorResponse
+// @Router /achievements/{id}/submit [post]
 func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -334,7 +412,19 @@ func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /api/v1/achievements/:id/verify
+// Verify godoc
+// @Summary Verify achievement
+// @Description Verify and approve achievement (dosen wali/admin only)
+// @Tags 5.3 Achievements
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Param request body model.VerifyRequest true "Verification data with points"
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 403 {object} model.ErrorResponse
+// @Router /achievements/{id}/verify [post]
 func (s *AchievementService) Verify(c *fiber.Ctx) error {
 
 	id, err := uuid.Parse(c.Params("id"))
@@ -401,7 +491,19 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /api/v1/achievements/:id/reject
+// Reject godoc
+// @Summary Reject achievement
+// @Description Reject achievement with reason (dosen wali/admin only)
+// @Tags 5.3 Achievements
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Param request body model.RejectRequest true "Rejection data with note"
+// @Success 200 {object} model.SuccessMessageResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 403 {object} model.ErrorResponse
+// @Router /achievements/{id}/reject [post]
 func (s *AchievementService) Reject(c *fiber.Ctx) error {
 
 	var req model.RejectRequest
@@ -468,7 +570,17 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	})
 }
 
-// GET /api/v1/achievements/:id/history
+// GetHistory godoc
+// @Summary Get achievement history
+// @Description Get status change history of an achievement
+// @Tags 5.3 Achievements
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Success 200 {object} model.SwaggerAchievementHistoryResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /achievements/{id}/history [get]
 func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -513,7 +625,19 @@ func (s *AchievementService) GetHistory(c *fiber.Ctx) error {
 	})
 }
 
-// POST /api/v1/achievements/:id/attachments
+// UploadAttachment godoc
+// @Summary Upload attachment
+// @Description Upload file attachment for achievement
+// @Tags 5.3 Achievements
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Achievement Reference ID"
+// @Param file formData file true "File to upload"
+// @Success 200 {object} model.SwaggerAttachmentResponse
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 403 {object} model.ErrorResponse
+// @Router /achievements/{id}/attachments [post]
 func (s *AchievementService) UploadAttachment(c *fiber.Ctx) error {
 
 	id, err := uuid.Parse(c.Params("id"))
